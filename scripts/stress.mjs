@@ -22,7 +22,7 @@ try {
         : await fetch(base+'/api/v1/retailers');
       const data=await res.json();
       assert.equal(res.status,bad?400:200);
-      if(!bad) assert.equal(data.length,4);
+      if(!bad) assert.equal(data.length,3);
       latencies.push(performance.now()-start);
     }
   }));

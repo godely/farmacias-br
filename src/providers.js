@@ -1,10 +1,10 @@
 import { isDcbName } from 'drogasil-cli/medication-catalog';
 import {
-  getProductsBySku, productInfo, resolveMedication, searchProducts, searchStockWindows, stockQuantity,
+  getProductsBySku, listStores, productInfo, resolveMedication, searchProducts, searchStockWindows, stockQuantity,
 } from 'drogasil-cli';
+import { createRetailer } from 'paguemenos-cli/vtex';
 import { retailer as pagueMenos } from 'paguemenos-cli';
 import { retailer as saoPaulo } from 'drogariasaopaulo-cli';
-import { retailer as independente } from 'farmaciaindependente-cli';
 
 function catalogRow(hit) {
   const info = productInfo(hit);
@@ -20,8 +20,13 @@ function catalogRow(hit) {
 
 const drogasil = {
   name: 'Drogasil',
+  stores: listStores,
   async search(query, page, limit) {
     return (await searchProducts(query, { page: page - 1, hitsPerPage: limit })).hits.map(catalogRow);
+  },
+  async byGtin(gtin) {
+    const {hits} = await searchProducts(gtin,{hitsPerPage:100});
+    return hits.filter(hit => String(hit.eanCode) === gtin).map(catalogRow);
   },
   async product(sku) {
     return (await getProductsBySku([sku])).filter(Boolean).map(catalogRow);
@@ -72,6 +77,7 @@ export function withMedicationNames(source, resolve = resolveMedication) {
   } };
 }
 
-export const providers = { drogasil, paguemenos: withMedicationNames(pagueMenos), drogariasaopaulo: saoPaulo,
-  farmaciaindependente: independente };
-export const retailPartners = [pagueMenos, saoPaulo, independente];
+export const providers = { drogasil, paguemenos: withMedicationNames(pagueMenos), drogariasaopaulo: {
+    ...saoPaulo, basket:createRetailer({name:saoPaulo.name,site:saoPaulo.site}).basket,
+  } };
+export const retailPartners = [pagueMenos, saoPaulo];

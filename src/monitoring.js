@@ -5,16 +5,16 @@ import { createTransport, getEnvelopeEndpointWithUrlEncodedAuth, makeDsn } from 
 const release = 'farmacias-br@' + createRequire(import.meta.url)('../package.json').version;
 const chains = new Map([
   ['Drogasil', 'drogasil'], ['Pague Menos', 'paguemenos'],
-  ['Drogaria São Paulo', 'drogariasaopaulo'], ['Farmácias Independente', 'farmaciaindependente'],
+  ['Drogaria São Paulo', 'drogariasaopaulo'],
 ]);
-const operations = new Set(['retailers', 'search', 'suggest', 'product', 'stock', 'prices', 'get_medication_info',
+const operations = new Set(['retailers', 'search', 'suggest', 'product', 'info', 'stores', 'compare', 'basket', 'snapshot', 'read_snapshot', 'stock', 'prices', 'get_medication_info',
   'plan_purchase', 'search_products', 'get_products', 'find_nearby_stock', 'compare_products',
   'compare_pharmacy_prices', 'collect_catalog_snapshot', 'read_catalog_snapshot', 'service', 'presentation_canary']);
 const failures = new Set(['upstream_failure', 'lookup_miss', 'stock_unknown', 'catalog_incomplete', 'service_exit', 'handler_exception', 'timeout', 'canary_mismatch']);
-const knownMiss = new Set(['no_reference', 'unknown_sku', 'no_match', 'no_exact_match']);
+const knownMiss = new Set(['no_reference', 'unknown_sku', 'unknown_gtin', 'no_match', 'no_exact_match']);
 const sourceProblems = new Set(['failed', 'source_failed', 'catalog_lookup_failed', 'location_lookup_failed',
   'generic_lookup_failed', 'reference_lookup_failed', 'lookup_failed']);
-const incomplete = new Set(['incomplete_presentation', 'no_prices', 'unconfirmed_gtin', 'missing_gtin', 'presentation_unconfirmed']);
+const incomplete = new Set(['incomplete_presentation', 'no_prices', 'unconfirmed_gtin', 'missing_gtin', 'presentation_unconfirmed', 'quantity_unverified']);
 const clarifications = new Set(['ambiguous', 'choose_reference', 'presentation_options', 'conflicting_release',
   'needs_generic_preference', 'requires_cep']);
 const uuid = () => randomUUID().replaceAll('-', '');
