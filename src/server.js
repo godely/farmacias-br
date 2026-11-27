@@ -10,7 +10,8 @@ import { operations, request, schemas } from './index.js';
 
 const descriptions = {
   retailers: 'List supported Brazilian retailers and the stock and price evidence each can provide.',
-  search: 'Search catalogs by name in all four pharmacies or one named retailer. Returns distinct retailer/SKU pairs and availability of each source. Catalog search needs no CEP.',
+  search: 'Search one or all four catalogs without a CEP. On an empty first Pague Menos page, offer returned suggestions as search terms and wait for the user to choose. Search again with the chosen query and the same retailer. For ingredient questions use the reported activeIngredients as evidence. An empty ingredient list means unconfirmed.',
+  suggest: 'Complete a partial Pague Menos search term without looking up products or requiring a CEP. Return the terms for the user to choose. Pass the selected term and retailerId to pharmacy_search as query and retailer.',
   product: 'Read facts and online prices for a retailer-specific SKU. Do not infer a prescription rule from a missing fact.',
   stock: 'Check one retailer and SKU at the supplied location. Drogasil also accepts exact coordinates and returns branch quantities, VTEX retailers quote fulfillment, Independente reports city-level branch stock bands. Only report the evidence actually returned.',
   prices: 'Compare the same product across Brazilian pharmacies by CEP. Supply a name, GTIN, Drogasil SKU, or a SKU with its owning retailer. This call identifies every checked chain and returns its status. Rank locally verified prices separately from online-only offers. For choose_reference, let the user identify the pack, then send its retailer and SKU. Ask about generic consent for brand shopping.',

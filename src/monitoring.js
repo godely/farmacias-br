@@ -7,7 +7,7 @@ const chains = new Map([
   ['Drogasil', 'drogasil'], ['Pague Menos', 'paguemenos'],
   ['Drogaria São Paulo', 'drogariasaopaulo'], ['Farmácias Independente', 'farmaciaindependente'],
 ]);
-const operations = new Set(['retailers', 'search', 'product', 'stock', 'prices', 'get_medication_info',
+const operations = new Set(['retailers', 'search', 'suggest', 'product', 'stock', 'prices', 'get_medication_info',
   'plan_purchase', 'search_products', 'get_products', 'find_nearby_stock', 'compare_products',
   'compare_pharmacy_prices', 'collect_catalog_snapshot', 'read_catalog_snapshot', 'service', 'presentation_canary']);
 const failures = new Set(['upstream_failure', 'lookup_miss', 'stock_unknown', 'catalog_incomplete', 'service_exit', 'handler_exception', 'timeout', 'canary_mismatch']);
@@ -37,6 +37,8 @@ function queryShape(query) {
 
 function outcome(row = {}) {
   const status = row.status ?? row.state ?? row.localStatus;
+  if (row.suggestionStatus === 'source_failed') return 'upstream_failure';
+  if (row.suggestionStatus === 'suggestions') return 'clarification';
   if (sourceProblems.has(status) || row.failed?.length || row.isError) return 'upstream_failure';
   if (knownMiss.has(status) || row.unknownSku === true) return 'lookup_miss';
   if (row.scope === 'nearest' && row.nearestStore) {
@@ -80,7 +82,7 @@ export function observations(operation, args, result) {
     const selected = outcomes.find(value => failures.has(value)) ?? (outcomes.every(x => x === 'zero_stock') ? 'zero_stock' : outcome(result));
     rows.push({ operation, retailer: base, shape: queryShape(args.sku), outcome: selected });
   } else {
-    add(result, args.query ?? args.sku);
+    add(result, args.query ?? args.sku, result.retailerId ? retailerId(result.retailerId) : base);
   }
   return rows;
 }

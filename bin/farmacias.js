@@ -5,6 +5,7 @@ import { request } from '../src/index.js';
 const usage = `Farmácias BR
   farmacias retailers
   farmacias search <nome> [--retailer ID] [--page N] [--limit N]
+  farmacias suggest <prefixo> [--limit N] (Pague Menos)
   farmacias product <SKU> --retailer ID
   farmacias stock <SKU> --retailer ID (--cep CEP | --lat LAT --lon LON) [--quantity N]
   farmacias prices <nome, SKU ou GTIN> --cep CEP [--retailer ID] [--generics]

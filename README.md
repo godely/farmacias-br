@@ -9,12 +9,16 @@ Em uma cópia deste repositório, execute `npm ci` com Node.js 20 ou superior. U
 ```sh
 farmacias retailers
 farmacias search dipirona --limit 3
+farmacias suggest morfi
+farmacias search morfina --retailer paguemenos
 farmacias product 81128 --retailer drogasil
 farmacias stock 81128 --retailer drogasil --cep "$CEP"
 farmacias prices 81128 --retailer drogasil --cep "$CEP"
 ```
 
 Cada SKU pertence a uma rede. A comparação entre redes valida o código de barras e a apresentação antes de ordenar as ofertas pelo preço. O resultado separa valores verificados para o CEP de ofertas de vitrine. Frete e descontos de programas pessoais podem alterar o total. A busca no catálogo e a consulta de informações de um produto funcionam sem CEP.
+
+Na primeira página sem correspondências, a Pague Menos retorna sugestões de termos junto ao resultado vazio. Para consultar apenas os termos, use `pharmacy_suggest` no MCP ou `POST /api/v1/suggest`. Depois da escolha, use `pharmacy_search` com a mesma rede. Cada produto da busca da Pague Menos inclui os princípios ativos informados pelo catálogo em `activeIngredients`. Uma lista vazia indica informação ausente.
 
 | Rede | Evidência de disponibilidade |
 |---|---|
