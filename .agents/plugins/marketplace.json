@@ -1,0 +1,20 @@
+{
+  "name": "farmacias-brasil",
+  "interface": {
+    "displayName": "Farmácias BR"
+  },
+  "plugins": [
+    {
+      "name": "farmacias-br",
+      "source": {
+        "source": "local",
+        "path": "./plugins/farmacias-br"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

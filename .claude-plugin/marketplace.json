@@ -1,0 +1,16 @@
+{
+  "name": "farmacias-brasil",
+  "owner": {
+    "name": "godely"
+  },
+  "plugins": [
+    {
+      "name": "farmacias-br",
+      "source": "./plugins/farmacias-br",
+      "description": "Catálogos, preços locais e estoque de quatro redes de farmácias brasileiras."
+    }
+  ],
+  "metadata": {
+    "description": "Integrações Farmácias BR para os catálogos e ofertas das farmácias brasileiras."
+  }
+}
