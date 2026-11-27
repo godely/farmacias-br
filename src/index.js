@@ -16,6 +16,8 @@ export const schemas = {
   search: z.strictObject({ query, retailer: retailer.optional(), page: z.number().int().min(1).max(100).default(1),
     limit: z.number().int().min(1).max(50).default(10) }),
   suggest: z.strictObject({ query, retailer: z.literal('paguemenos').default('paguemenos'),
+    declinedTerm: query.optional().describe('Previously proposed term the user declined. Return remaining suggestions.'),
+    listAll: z.boolean().optional().describe('Use only when the user explicitly requests a list of terms.'),
     limit: z.number().int().min(1).max(50).default(7) }),
   product: z.strictObject({ retailer, sku }),
   stock: withLocation({ retailer, sku, quantity: z.number().int().min(1).max(1000).default(1) }),
@@ -39,13 +41,21 @@ function summary(row, id) {
 }
 
 export async function suggestTerms(args, sources = providers) {
-  const { query, retailer, limit } = schemas.suggest.parse(args);
+  const { query, retailer, limit, declinedTerm } = schemas.suggest.parse(args);
   try {
-    const suggestions = await sources[retailer].suggest(query, limit);
+    let suggestions = await sources[retailer].suggest(query, declinedTerm ? Math.min(limit + 2, 50) : limit);
+    if (declinedTerm) {
+      const excluded = new Set([termKey(query), termKey(declinedTerm)]);
+      suggestions = suggestions.filter(term => !excluded.has(termKey(term))).slice(0, limit);
+    }
     return { retailerId: retailer, status: suggestions.length ? 'suggestions' : 'no_suggestions', suggestions };
   } catch {
     return { retailerId: retailer, status: 'source_failed', suggestions: [] };
   }
+}
+
+function termKey(value) {
+  return value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, '');
 }
 
 export async function searchCatalog(args, sources = providers) {
@@ -65,7 +75,7 @@ export async function searchCatalog(args, sources = providers) {
         }) };
       if (id === 'paguemenos' && page === 1 && !rows.length) {
         const completion = await suggestTerms({ query, retailer: id }, sources);
-        group.suggestions = completion.suggestions.filter(term => term.toLowerCase() !== query.toLowerCase());
+        group.suggestions = completion.suggestions.filter(term => termKey(term) !== termKey(query));
         group.suggestionStatus = completion.status === 'source_failed' ? 'source_failed'
           : group.suggestions.length ? 'suggestions' : 'no_suggestions';
       }

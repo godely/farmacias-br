@@ -18,7 +18,10 @@ farmacias prices 81128 --retailer drogasil --cep "$CEP"
 
 Cada SKU pertence a uma rede. A comparação entre redes valida o código de barras e a apresentação antes de ordenar as ofertas pelo preço. O resultado separa valores verificados para o CEP de ofertas de vitrine. Frete e descontos de programas pessoais podem alterar o total. A busca no catálogo e a consulta de informações de um produto funcionam sem CEP.
 
-Na primeira página sem correspondências, a Pague Menos retorna sugestões de termos junto ao resultado vazio. Para consultar apenas os termos, use `pharmacy_suggest` no MCP ou `POST /api/v1/suggest`. Depois da escolha, use `pharmacy_search` com a mesma rede. Cada produto da busca da Pague Menos inclui os princípios ativos informados pelo catálogo em `activeIngredients`. Uma lista vazia indica informação ausente.
+Na primeira página sem correspondências, a Pague Menos consulta sugestões para o nome digitado. O MCP devolve uma proposta e a pergunta “Você quis dizer …?”. Após “sim”, o cliente chama `pharmacy_search` com `confirmation.onYes`. Após “não”, chama `pharmacy_suggest` com `confirmation.onNo` para mostrar as outras sugestões. Se a pessoa pedir a lista completa, envie `listAll: true` a `pharmacy_suggest`. O endpoint `POST /api/v1/suggest` e a CLI também permitem consultar os termos. Cada produto da busca da Pague Menos inclui os princípios ativos informados pelo catálogo em `activeIngredients`. Uma lista vazia indica informação ausente.
+
+A busca usa o vocabulário DCB de julho de 2026 e o resolvedor de princípios ativos e marcas da biblioteca Drogasil para ordenar propostas da Pague Menos. A confirmação mantém a rede e a apresentação pedidas. Se a Drogasil estiver indisponível, a busca pode usar as sugestões da própria Pague Menos. Os nomes DCB vêm das colunas de identificador e denominação da [planilha oficial da ANVISA](https://bibliotecadigital.anvisa.gov.br/jspui/bitstream/anvisa/21318/1/2-Lista%20DCB%20consolidada%20jul%202026.xlsx). Para atualizar o vocabulário, execute `python3 scripts/build-dcb-names.py caminho/para/lista.xlsx src/data/dcb-names.txt` e revise a alteração. A planilha enriquecida com marcas não é necessária para gerar o arquivo.
+
 
 | Rede | Evidência de disponibilidade |
 |---|---|
