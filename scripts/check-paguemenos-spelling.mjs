@@ -5,6 +5,9 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
+const retailer = process.argv[2] ?? 'paguemenos';
+const expectedSkus = {paguemenos:['6974','6981','7191'],drogariasaopaulo:['55956','56014','55611','268852'],farmaciaindependente:['6933','8918','94037595']};
+assert.ok(Object.hasOwn(expectedSkus,retailer));
 const cases = {
   prefix: [
     ['morfi','morfina'], ['paracet','paracetamol'], ['ibupro','ibuprofeno'], ['lorata','loratadina'],
@@ -25,7 +28,7 @@ const cases = {
   invented: [['zzxqvbrt'], ['qqzkvanto'], ['vxzqmbrr'], ['nzpqvxol'], ['xxqzkrpina'], ['qjvtxzpm']],
   exact: [['morfina','morfina'], ['paracetamol','paracetamol'], ['loratadina','loratadina'], ['ibuprofeno','ibuprofeno']],
 };
-const client = new Client({name:'paguemenos-spelling-check',version:'1'});
+const client = new Client({name:'retailer-spelling-check',version:'1'});
 const call = async (name, args) => {
   const result = await client.callTool({name, arguments:args});
   assert.ok(!result.isError, name+' failed');
@@ -39,7 +42,7 @@ try {
   for (const [kind, inputs] of Object.entries(cases)) {
     for (const [query, expected] of inputs) {
       try {
-        const args = {query, retailer:'paguemenos', limit:1};
+        const args = {query, retailer, limit:1};
         const [group] = (await call('pharmacy_search',args)).results;
         let outcome;
         if (kind === 'exact') {
@@ -55,11 +58,17 @@ try {
           const no = await call('pharmacy_suggest',group.confirmation.onNo);
           assert.ok(['suggestions','no_suggestions'].includes(no.status));
           assert.ok(no.suggestions.every(other => norm(other) !== norm(term)));
+          assert.equal(no.retailerId,retailer);
           const yes = (await call('pharmacy_search',{...group.confirmation.onYes, limit:query==='morfi'?50:1})).results[0];
           assert.equal(yes.status, 'matches', 'accepted term has no catalog matches');
           if (query === 'morfi') {
-            assert.deepEqual(yes.products.map(p=>p.sku).sort(), ['6974','6981','7191']);
-            assert.ok(yes.products.every(p=>p.activeIngredients.some(a=>norm(a)==='morfina')));
+            assert.ok(no.suggestions.length);
+            assert.deepEqual([...new Set(yes.products.map(p=>p.sku))].sort(),expectedSkus[retailer].slice().sort());
+            assert.ok(yes.products.every(p=>p.retailerId===retailer && p.activeIngredients.some(a=>/\bmorfina\b/.test(norm(a)))));
+            if (retailer!=='paguemenos') {
+              const source=retailer==='drogariasaopaulo'?'retailer_field':'matched_gtin';
+              assert.ok(yes.products.every(p=>p.ingredientEvidence?.source===source));
+            }
           }
           outcome = 'confirmed';
         } else {
