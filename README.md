@@ -40,6 +40,8 @@ Os quatro adaptadores são projetos independentes. [Drogasil](https://github.com
 
 Execute `npm test` para testar contratos, falhas parciais, entradas inválidas, leituras concorrentes e os transportes stdio e HTTP. A auditoria com consultas reais aceita um TSV local com UF, município e CEP e um SKU da Drogasil. Cada linha de saída contém o estado, município e resultados das redes. Exemplo de chamada: `node scripts/regional-audit.mjs origens.tsv 81128`. Nenhum CEP é configurado como padrão.
 
+O serviço aceita monitoramento opcional no Sentry, com ocorrências agrupadas e contagens separadas de falta de estoque. [Configuração e revisão em lote](docs/monitoring.md).
+
 ## Plugin no Codex e no Claude Code
 
 O plugin reúne o servidor MCP e três skills. Cada cliente instala a mesma versão do serviço. O modo portátil usa Node e npx no computador do cliente e baixa o código de uma revisão específica no GitHub na primeira execução.
