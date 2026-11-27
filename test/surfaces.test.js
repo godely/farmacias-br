@@ -129,9 +129,11 @@ test('CLI, HTTP, HTTP MCP and stdio MCP expose the same registry', async t => {
     const client = new Client({name:'integration',version:'1'}); await client.connect(transport);
     try {
       const {tools} = await client.listTools();
-      for (const name of ['plan_purchase','find_nearby_stock','get_medication_info','compare_products','collect_catalog_snapshot','pharmacy_retailers','pharmacy_prices','pharmacy_search','pharmacy_suggest','pharmacy_stock','pharmacy_product']) {
+      for (const name of ['plan_purchase','find_nearby_stock','get_medication_info','compare_products','collect_catalog_snapshot','pharmacy_retailers','pharmacy_prices','pharmacy_search','pharmacy_suggest','pharmacy_stock','pharmacy_product','pharmacy_basket','pharmacy_compare','pharmacy_info','pharmacy_stores','pharmacy_snapshot','pharmacy_read_snapshot']) {
         assert.ok(tools.some(tool=>tool.name===name),name);
       }
+      assert.equal(tools.find(t=>t.name==='pharmacy_snapshot').annotations.readOnlyHint,false);
+      assert.equal(tools.find(t=>t.name==='pharmacy_basket').annotations.readOnlyHint,true);
       assert.deepEqual((await client.callTool({name:'pharmacy_retailers',arguments:{}})).structuredContent.retailers,listRetailers());
       assert.ok((await client.callTool({name:'pharmacy_stock',arguments:{sku:'1'}})).isError);
     } finally {await client.close()}
@@ -197,5 +199,12 @@ test('both additional chains keep the retailer on yes and ask it for alternative
     assert.deepEqual(group.confirmation.onYes,{query:'morfina',retailer});
     const no=await suggestTerms(group.confirmation.onNo,{[retailer]:source});
     assert.deepEqual(no,{status:'suggestions',retailerId:retailer,suggestions:['morfina 10 mg']});
+  }
+});
+
+test('directory outage, unknown item and insufficient local evidence have separate stock outcomes', async()=>{
+  const args={retailer:'farmaciaindependente',sku:'42',zipcode:'01001000'};
+  for (const provider of [{serves:async()=>{throw Error('offline')}},{product:async()=>{throw Error('offline')}}]) {
+    assert.equal((await getStock(args,{farmaciaindependente:provider})).status,'source_failed');
   }
 });

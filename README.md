@@ -37,9 +37,9 @@ const catalog = await searchCatalog({ query: 'dipirona', limit: 3 });
 const prices = await comparePrices({ query: '81128', retailer: 'drogasil', zipcode: process.env.CEP });
 ```
 
-`farmacias-mcp` usa stdio. `farmacias-mcp --http --port 8787` inicia um serviço em 127.0.0.1 com MCP em `/mcp`. A interface HTTP oferece `GET /api/v1/retailers` e `POST /api/v1/{search,product,stock,prices}` com os mesmos parâmetros JSON da biblioteca. Ao usar acesso remoto, proteja o serviço com a autenticação do seu proxy. As operações de consulta não fazem compras.
+`farmacias-mcp` usa stdio. `farmacias-mcp --http --port 8787` inicia um serviço em 127.0.0.1 com MCP em `/mcp`. A interface HTTP oferece `GET /api/v1/retailers` e `POST /api/v1/<operação>` com os mesmos parâmetros JSON da biblioteca. Ao usar acesso remoto, proteja o serviço com a autenticação do seu proxy. As operações de consulta não fazem compras.
 
-Os MCPs `pharmacy_search`, `pharmacy_product`, `pharmacy_stock` e `pharmacy_prices` atendem as quatro redes. As ferramentas de informações sobre medicamentos, comparação de genéricos, compra em várias filiais e snapshots da Drogasil também estão disponíveis. O plano de retirada da Drogasil cobre somente suas filiais.
+Os MCPs `pharmacy_search`, `pharmacy_product`, `pharmacy_stock` e `pharmacy_prices` atendem as quatro redes. As ferramentas originais da Drogasil continuam disponíveis. As operações por rede e as diferenças de cobertura estão na tabela de funções abaixo. O plano de retirada da Drogasil cobre somente suas filiais.
 
 Os quatro adaptadores são projetos independentes. [Drogasil](https://github.com/godely/drogasil-cli) · [Pague Menos](https://github.com/godely/paguemenos-cli) · [Drogaria São Paulo](https://github.com/godely/drogariasaopaulo-cli) · [Farmácias Independente](https://github.com/godely/farmaciaindependente-cli).
 
@@ -75,3 +75,32 @@ Repetimos a comparação nas 27 capitais e em Parintins (AM), Petrolina (PE), Ca
 A consulta de estoque da Drogasil também aceita `--lat` e `--lon` ou um objeto JSON `coordinates` com `latitude` e `longitude`. Os adaptadores que verificam a entrega por CEP retornam `requires_cep` quando recebem apenas um ponto. Quando o catálogo de referência não identifica um nome, a API procura candidatos nos demais catálogos para que a pessoa escolha uma apresentação.
 
 A resposta de preços inclui as modalidades que cada rede confirmou, taxas informadas e identificação e endereço dos pontos de retirada. Uma opção de retirada confirma o atendimento simulado para aquela quantidade. Para repetir o ensaio local de concorrência, rejeição de entradas e persistência de mil produtos, execute `node scripts/stress.mjs` na cópia de desenvolvimento. O ensaio usa o serviço em loopback e um catálogo sintético.
+
+## Funções verificáveis por rede
+
+| Consulta | Drogasil | Pague Menos e Drogaria São Paulo | Farmácias Independente |
+|---|---|---|---|
+| Catálogo, SKU, lote de SKUs e GTIN | Sim | Sim | Sim |
+| Informações por nome ou SKU, sem CEP | Ficha estruturada e fontes regulatórias no MCP específico | Título e campos publicados pela rede | Título local e composição quando verificada |
+| Marca e genéricos da mesma apresentação | Comparação no catálogo Drogasil | Equivalência do catálogo de referência e embalagem confirmada na rede | Mesmo critério |
+| Preço e atendimento local | Estoque por filial e preço de referência | Simulação por CEP, SKU, vendedor e quantidade | Preço online e faixa de estoque por filial do município |
+| Cesta de vários produtos | Planejamento de paradas e percurso | Simulação conjunta, pontos de retirada comuns e subtotal dos produtos quando confirmado | Consulta das faixas por item, com quantidade a confirmar |
+| Diretório de lojas | Sim | Os pontos de retirada vêm da cotação | Sim |
+| Filial fisicamente mais próxima e ampliação para 25 km | Sim | Sem cobertura confirmada para essa operação | Sem cobertura confirmada para essa operação |
+| Snapshot com paginação de leitura | Sim | Sim, com ofertas por SKU | Sim, com ofertas por SKU |
+
+A CLI, a biblioteca, o HTTP e o MCP compartilham o registro de operações. Os nomes MCP usam o prefixo `pharmacy_`. Para operações em outras redes, escolha o identificador da rede em `pharmacy_retailers`. Os dados de preço e estoque sempre pertencem à rede consultada. A equivalência é limitada aos genéricos que o catálogo de referência consegue identificar e cuja embalagem consta na rede selecionada. Uma classificação, concentração ou retenção ausente fica sem confirmação.
+
+```sh
+farmacias product --gtin 7899547543766 --retailer paguemenos
+farmacias info Tylenol loratadina --retailer drogariasaopaulo
+farmacias compare 945 --retailer farmaciaindependente --generics
+farmacias basket 3179:1 1633706:2 --retailer paguemenos --cep "$CEP"
+farmacias stores --retailer farmaciaindependente --limit 5
+farmacias snapshot loratadina paracetamol --retailer drogariasaopaulo --max-items 10
+farmacias read_snapshot "$RUN_ID" --limit 5
+```
+
+O teste de aceitação chama o MCP por stdio contra os catálogos reais, exercita os dois CEPs informados no momento do teste e descarta seu banco temporário de snapshots. Ele valida separadamente o escopo do preço, a quantidade consultada, o vendedor, a opção de retirada comum e as faixas de estoque. Execute `node scripts/check-retailer-workflows.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"` com dois CEPs atendidos pela Independente para o cenário de estoque municipal. O número de lojas e os preços variam.
+
+Para verificar também os executáveis dos três pacotes publicados no GitHub, execute `node scripts/check-sibling-clis.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"`. O teste cobre busca, sugestões, SKU, informações, código de barras, estoque e, na Independente, o diretório de lojas.
