@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "farmacias-br": {
+      "command": "npx",
+      "args": [
+        "--yes",
+        "--package=https://codeload.github.com/godely/farmacias-br/tar.gz/730185c48a601e8faa8a35d5efe0723f1601862a",
+        "--",
+        "farmacias-mcp"
+      ]
+    }
+  }
+}

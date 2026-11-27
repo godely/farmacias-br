@@ -1,0 +1,15 @@
+{
+  "name": "farmacias-br",
+  "version": "0.1.0",
+  "description": "Catálogos, preços locais e estoque de quatro redes de farmácias brasileiras.",
+  "author": {
+    "name": "godely"
+  },
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Farmácias BR",
+    "category": "Productivity",
+    "shortDescription": "Catálogos, preços locais e estoque de quatro redes de farmácias brasileiras."
+  }
+}

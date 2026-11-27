@@ -39,3 +39,20 @@ Os quatro adaptadores são projetos independentes. [Drogasil](https://github.com
 ## Verificação
 
 Execute `npm test` para testar contratos, falhas parciais, entradas inválidas, leituras concorrentes e os transportes stdio e HTTP. A auditoria com consultas reais aceita um TSV local com UF, município e CEP e um SKU da Drogasil. Cada linha de saída contém o estado, município e resultados das redes. Exemplo de chamada: `node scripts/regional-audit.mjs origens.tsv 81128`. Nenhum CEP é configurado como padrão.
+
+## Plugin no Codex e no Claude Code
+
+O plugin reúne o servidor MCP e três skills. Cada cliente instala a mesma versão do serviço. O modo portátil usa Node e npx no computador do cliente e baixa o código de uma revisão específica no GitHub na primeira execução.
+
+```sh
+codex plugin marketplace add godely/farmacias-br
+codex plugin add farmacias-br@farmacias-brasil
+claude plugin marketplace add godely/farmacias-br
+claude plugin install farmacias-br@farmacias-brasil
+```
+
+Em uma instalação remota pessoal, aponte o conector do cliente para o caminho autenticado `/mcp` do seu servidor. O endpoint e as credenciais pertencem à configuração privada de cada cliente.
+
+## Amostra de cobertura nacional
+
+Em 27 de novembro de 2026, verificamos uma apresentação de paracetamol em um CEP de cada capital das 26 unidades estaduais e do Distrito Federal. As 27 consultas retornaram resultados dos quatro adaptadores. Pague Menos confirmou oferta para os 27 CEPs e Drogaria São Paulo para 15. A Drogasil informou filiais em 22 das 27 janelas iniciais de estoque. Farmácias Independente indicou 26 municípios fora de seu diretório local. No município restante, essa caixa específica não teve correspondência exata. Esse teste mede a resposta das fontes para a amostra; o atendimento depende de CEP, produto e momento.
