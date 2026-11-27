@@ -7,7 +7,8 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { localApp } from '../src/server.js';
-import { getStock, listRetailers, request, searchCatalog } from '../src/index.js';
+import { getStock, listRetailers, request, searchCatalog, suggestTerms } from '../src/index.js';
+import { observations } from '../src/monitoring.js';
 
 test('one source outage leaves three catalog outcomes and preserves retailer-specific SKU identity', async () => {
   const sources = Object.fromEntries(listRetailers().map(({id}) => [id, { search: async () => [{sku: '1', name: 'Exemplo Genérico'}] }]));
@@ -32,6 +33,47 @@ test('missing coverage, unknown SKU, seller failure and stock bands are distinct
   const [a] = (await getStock(options,sources)).offers;
   assert.equal(a.quantityVerified,false); assert.equal(a.requestedQuantity,3);
   assert.equal(a.branches[0].quantity,undefined);
+});
+
+test('a Pague Menos prefix returns terms until the caller selects one, then exposes the catalog ingredient', async () => {
+  const searched = [], suggested = [];
+  const sources = { paguemenos: {
+    search: async query => {
+      searched.push(query);
+      return query === 'morfina' ? [{ sku: '1', name: 'Dimorf', facts: { NomeSubstanciaPrincipioAtivo: ['Morfina'] } }] : [];
+    },
+    suggest: async query => { suggested.push(query); return ['MORFI', 'morfina']; },
+  } };
+  const args = { retailer: 'paguemenos', query: 'morfi' };
+  const first = await searchCatalog(args, sources);
+  const [group] = first.results;
+  assert.deepEqual(group, { retailerId: 'paguemenos', status: 'no_match', products: [],
+    suggestionStatus: 'suggestions', suggestions: ['morfina'] });
+  assert.deepEqual(searched, ['morfi']);
+  assert.equal(observations('pharmacy_search', args, first)[0].outcome, 'clarification');
+  const chosen = await searchCatalog({ retailer: group.retailerId, query: group.suggestions[0] }, sources);
+  assert.deepEqual(chosen.results[0].products[0].activeIngredients, ['Morfina']);
+  assert.equal(chosen.results[0].suggestions, undefined);
+  await searchCatalog({ ...args, page: 2 }, sources);
+  assert.deepEqual(suggested, ['morfi']);
+  const terms = await suggestTerms({query: 'morfi'}, sources);
+  assert.ok(terms.suggestions.includes('morfina'));
+  assert.deepEqual(searched, ['morfi', 'morfina', 'morfi']);
+  await assert.rejects(suggestTerms({...args, retailer:'drogasil'}, sources));
+});
+
+test('a suggestion outage preserves the catalog miss, and a failed catalog does not initiate suggestions', async () => {
+  const args = { retailer: 'paguemenos', query: 'exemplo' };
+  let calls = 0;
+  const provider = { search: async () => [], suggest: async () => { calls++; throw Error('outage'); } };
+  const sources = { paguemenos: provider };
+  const first = await searchCatalog(args, sources);
+  assert.deepEqual(first.results[0], { retailerId:'paguemenos', status:'no_match', products:[],
+    suggestionStatus:'source_failed', suggestions:[] });
+  assert.equal(observations('pharmacy_search', args, first)[0].outcome, 'upstream_failure');
+  provider.search = async () => { throw Error('outage'); };
+  assert.equal((await searchCatalog(args, sources)).results[0].status, 'source_failed');
+  assert.equal(calls, 1);
 });
 
 test('bounded and strict public inputs', async () => {
@@ -62,7 +104,7 @@ test('CLI, HTTP, HTTP MCP and stdio MCP expose the same registry', async t => {
     const client = new Client({name:'integration',version:'1'}); await client.connect(transport);
     try {
       const {tools} = await client.listTools();
-      for (const name of ['plan_purchase','find_nearby_stock','get_medication_info','compare_products','collect_catalog_snapshot','pharmacy_retailers','pharmacy_prices','pharmacy_search','pharmacy_stock','pharmacy_product']) {
+      for (const name of ['plan_purchase','find_nearby_stock','get_medication_info','compare_products','collect_catalog_snapshot','pharmacy_retailers','pharmacy_prices','pharmacy_search','pharmacy_suggest','pharmacy_stock','pharmacy_product']) {
         assert.ok(tools.some(tool=>tool.name===name),name);
       }
       assert.deepEqual((await client.callTool({name:'pharmacy_retailers',arguments:{}})).structuredContent.retailers,listRetailers());

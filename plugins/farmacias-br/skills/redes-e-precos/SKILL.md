@@ -9,4 +9,6 @@ Ordene verifiedOffers por preço e mostre rede, vendedor, preço de venda e cond
 
 Para uma pesquisa de catálogo sem localização, use pharmacy_search. Para um produto de uma rede específica, use pharmacy_product com a rede e o SKU. Para estoque em uma rede específica, use pharmacy_stock. A Drogasil informa unidades por filial. Pague Menos e Drogaria São Paulo confirmam atendimento para a quantidade solicitada. Farmácias Independente pode informar uma faixa de estoque em filiais do município. Preserve as diferenças entre nenhuma filial participante, estoque zero, quantidade desconhecida e falha temporária.
 
+Quando a busca da Pague Menos devolver sugestões, ofereça o primeiro termo (“Você quis dizer morfina?”) ou mostre as alternativas se a pessoa pedir. Aguarde a escolha e consulte pharmacy_search com o termo escolhido e retailer `paguemenos`. Para completar um prefixo explicitamente, use pharmacy_suggest. Para afirmar que um produto contém um princípio ativo, confirme-o no campo activeIngredients.
+
 Para a loja Drogasil mais próxima, listas de compras e perguntas factuais sobre medicamentos, use as instruções de nearby-stock e compare-presentations. Os planos de compra por filial calculados por plan_purchase abrangem a Drogasil. Se uma pesquisa for somente informativa, responda sem CEP e sem pesquisa de preços ou estoque.

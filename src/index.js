@@ -15,6 +15,8 @@ export const schemas = {
   retailers: z.strictObject({}),
   search: z.strictObject({ query, retailer: retailer.optional(), page: z.number().int().min(1).max(100).default(1),
     limit: z.number().int().min(1).max(50).default(10) }),
+  suggest: z.strictObject({ query, retailer: z.literal('paguemenos').default('paguemenos'),
+    limit: z.number().int().min(1).max(50).default(7) }),
   product: z.strictObject({ retailer, sku }),
   stock: withLocation({ retailer, sku, quantity: z.number().int().min(1).max(1000).default(1) }),
   prices: withLocation({ query, retailer: retailer.optional().describe('Retailer owning the numeric SKU in query'),
@@ -36,14 +38,38 @@ function summary(row, id) {
   return fields;
 }
 
+export async function suggestTerms(args, sources = providers) {
+  const { query, retailer, limit } = schemas.suggest.parse(args);
+  try {
+    const suggestions = await sources[retailer].suggest(query, limit);
+    return { retailerId: retailer, status: suggestions.length ? 'suggestions' : 'no_suggestions', suggestions };
+  } catch {
+    return { retailerId: retailer, status: 'source_failed', suggestions: [] };
+  }
+}
+
 export async function searchCatalog(args, sources = providers) {
   const { query, retailer, page, limit } = schemas.search.parse(args);
   const ids = retailer ? [retailer] : retailerIds;
   const results = await Promise.all(ids.map(async id => {
     try {
       const rows = await sources[id].search(query, page, limit);
-      return { retailerId: id, status: rows.length ? 'matches' : 'no_match',
-        products: rows.map(row => summary(row, id)) };
+      const group = { retailerId: id, status: rows.length ? 'matches' : 'no_match',
+        products: rows.map(row => {
+          const fields = summary(row, id);
+          if (id === 'paguemenos') {
+            const active = row.facts?.NomeSubstanciaPrincipioAtivo;
+            fields.activeIngredients = [active].flat().filter(value => typeof value === 'string' && value.trim());
+          }
+          return fields;
+        }) };
+      if (id === 'paguemenos' && page === 1 && !rows.length) {
+        const completion = await suggestTerms({ query, retailer: id }, sources);
+        group.suggestions = completion.suggestions.filter(term => term.toLowerCase() !== query.toLowerCase());
+        group.suggestionStatus = completion.status === 'source_failed' ? 'source_failed'
+          : group.suggestions.length ? 'suggestions' : 'no_suggestions';
+      }
+      return group;
     } catch {
       return { retailerId: id, status: 'source_failed', products: [] };
     }
@@ -106,7 +132,7 @@ export async function comparePrices(args, { compare = compareRetailPrices, sourc
     discovery: discovery.results.map(({ retailerId, status }) => ({ retailerId, status })) };
 }
 
-export const operations = { retailers: listRetailers, search: searchCatalog, product: getProduct,
+export const operations = { retailers: listRetailers, search: searchCatalog, suggest: suggestTerms, product: getProduct,
   stock: getStock, prices: comparePrices };
 export async function request(operation, input) {
   if (!Object.hasOwn(operations, operation)) throw new TypeError('Operação desconhecida');
