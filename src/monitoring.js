@@ -14,7 +14,7 @@ const failures = new Set(['upstream_failure', 'lookup_miss', 'stock_unknown', 'c
 const knownMiss = new Set(['no_reference', 'unknown_sku', 'no_match', 'no_exact_match']);
 const sourceProblems = new Set(['failed', 'source_failed', 'catalog_lookup_failed', 'location_lookup_failed',
   'generic_lookup_failed', 'reference_lookup_failed', 'lookup_failed']);
-const incomplete = new Set(['incomplete_presentation', 'no_prices', 'unconfirmed_gtin', 'missing_gtin']);
+const incomplete = new Set(['incomplete_presentation', 'no_prices', 'unconfirmed_gtin', 'missing_gtin', 'presentation_unconfirmed']);
 const clarifications = new Set(['ambiguous', 'choose_reference', 'presentation_options', 'conflicting_release',
   'needs_generic_preference', 'requires_cep']);
 const uuid = () => randomUUID().replaceAll('-', '');
@@ -39,10 +39,17 @@ function outcome(row = {}) {
   const status = row.status ?? row.state ?? row.localStatus;
   if (sourceProblems.has(status) || row.failed?.length || row.isError) return 'upstream_failure';
   if (knownMiss.has(status) || row.unknownSku === true) return 'lookup_miss';
-  if (row.unknown?.length || status === 'stock_unknown' || row.coverage?.stockUnknown) return 'stock_unknown';
+  if (row.scope === 'nearest' && row.nearestStore) {
+    const quantity = row.nearestStore.quantity;
+    if (quantity == null) return 'stock_unknown';
+    if (quantity === 0) return 'zero_stock';
+    if (quantity < (row.minimumQuantity ?? 1)) return 'insufficient_stock';
+  }
+  if (row.expandedSearch?.partial || row.unknown?.length || status === 'stock_unknown' || row.coverage?.stockUnknown) return 'stock_unknown';
   if (['unverified','unknown'].includes(status)) return 'stock_unknown';
-  if (row.coverage?.allZero || status === 'no_stock' || status === 'insufficient_stock' ||
-      (row.unavailable?.length && !row.rows?.length)) return 'zero_stock';
+  if (row.coverage?.allZero || status === 'no_stock' || status === 'unavailable') return 'zero_stock';
+  if (status === 'insufficient_stock' ||
+      (row.unavailable?.length && !row.rows?.length)) return 'insufficient_stock';
   if (incomplete.has(status)) return 'catalog_incomplete';
   if (clarifications.has(status)) return 'clarification';
   if (status === 'outside_local_directory') return 'outside_coverage';
