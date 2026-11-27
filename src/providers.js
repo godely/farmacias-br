@@ -25,8 +25,8 @@ const drogasil = {
   async product(sku) {
     return (await getProductsBySku([sku])).filter(Boolean).map(catalogRow);
   },
-  async local(row, zipcode, quantity) {
-    const { windows, coverage } = await searchStockWindows(new Map([[row.sku, quantity]]), { zipcode });
+  async local(row, location, quantity) {
+    const { windows, coverage } = await searchStockWindows(new Map([[row.sku, quantity]]), typeof location === 'string' ? { zipcode: location } : location);
     const branches = windows.get(row.sku).rows.map(item => ({
       id: String(item.branch.id), name: item.branch.businessName, address: item.branch.address,
       distanceKm: item.branch.distanceKMFromSearch, quantity: stockQuantity(item, row.sku),

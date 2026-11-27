@@ -70,3 +70,24 @@ test('CLI, HTTP, HTTP MCP and stdio MCP expose the same registry', async t => {
     } finally {await client.close()}
   }
 });
+
+test('coordinate-only origins reach the point-capable retailer and request a CEP for delivery quotes', async () => {
+  const coordinates={latitude:-23.5,longitude:-46.6};
+  const row={sku:'42',name:'Example'};
+  const sources={drogasil:{product:async()=>[row],local:async(arg,origin)=>{assert.deepEqual(origin,coordinates);return arg}}};
+  assert.equal((await getStock({retailer:'drogasil',sku:'42',coordinates},sources)).status,'checked');
+  assert.equal((await getStock({retailer:'paguemenos',sku:'42',coordinates})).status,'requires_cep');
+  assert.equal((await request('prices',{query:'42',coordinates})).status,'requires_cep');
+});
+
+test('an independent name search can resolve a missing primary reference without selecting a near match', async () => {
+  const {comparePrices} = await import('../src/index.js');
+  const sources=Object.fromEntries(listRetailers().map(({id})=>[id,{search:async()=>[]}]));
+  sources.farmaciaindependente.search=async()=>[{sku:'9',name:'Exemplo gotas 20 mL'}];
+  const args={query:'Exemplo gotas 30 mL',zipcode:'01001000'};
+  for (const compare of [async()=>({status:'no_reference'}), async()=>{ throw Error('unavailable') }]) {
+    const r=await comparePrices(args,{compare,sources});
+    assert.equal(r.status,'choose_reference'); assert.equal(r.candidates[0].retailerId,'farmaciaindependente');
+    assert.ok(!r.verifiedOffers?.length);
+  }
+});
