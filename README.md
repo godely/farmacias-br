@@ -51,7 +51,11 @@ claude plugin marketplace add godely/farmacias-br
 claude plugin install farmacias-br@farmacias-brasil
 ```
 
-Em uma instalação remota pessoal, aponte o conector do cliente para o caminho autenticado `/mcp` do seu servidor. O endpoint e as credenciais pertencem à configuração privada de cada cliente.
+Em uma instalação remota pessoal, aponte o conector do cliente para o caminho autenticado `/mcp` do seu servidor. O endpoint e as credenciais pertencem à configuração privada de cada cliente. Para instalar no Claude Desktop as três skills junto com o MCP remoto, gere o arquivo na sua máquina e carregue-o em Plugins → Adicionar → Fazer upload. O cliente autentica a conexão depois da instalação.
+
+```sh
+python3 scripts/package-remote-plugin.py --url "$MCP_URL" --output farmacias-br.zip
+```
 
 ## Amostra de cobertura nacional
 
