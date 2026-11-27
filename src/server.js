@@ -10,12 +10,29 @@ import { operations, request, schemas } from './index.js';
 
 const descriptions = {
   retailers: 'List supported Brazilian retailers and the stock and price evidence each can provide.',
-  search: 'Search one or all four catalogs without a CEP. On an empty first Pague Menos page, offer returned suggestions as search terms and wait for the user to choose. Search again with the chosen query and the same retailer. For ingredient questions use the reported activeIngredients as evidence. An empty ingredient list means unconfirmed.',
-  suggest: 'Complete a partial Pague Menos search term without looking up products or requiring a CEP. Return the terms for the user to choose. Pass the selected term and retailerId to pharmacy_search as query and retailer.',
+  search: 'Search one or all four catalogs without a CEP. For a Pague Menos confirmation, ask only confirmation.question verbatim. Stop for the reply. Sim accepts that single term: call pharmacy_search with onYes. Não: call pharmacy_suggest with onNo and show the remaining terms. Use reported activeIngredients for ingredient questions.',
+  suggest: 'Suggest a Pague Menos search term without products or CEP. Ask only confirmation.question and wait. Sim: call pharmacy_search with onYes. Não: call this tool with onNo, list the remaining terms, and wait for a selection. If none remain, ask for another spelling. Use listAll only on an explicit request for all suggestions.',
   product: 'Read facts and online prices for a retailer-specific SKU. Do not infer a prescription rule from a missing fact.',
   stock: 'Check one retailer and SKU at the supplied location. Drogasil also accepts exact coordinates and returns branch quantities, VTEX retailers quote fulfillment, Independente reports city-level branch stock bands. Only report the evidence actually returned.',
   prices: 'Compare the same product across Brazilian pharmacies by CEP. Supply a name, GTIN, Drogasil SKU, or a SKU with its owning retailer. This call identifies every checked chain and returns its status. Rank locally verified prices separately from online-only offers. For choose_reference, let the user identify the pack, then send its retailer and SKU. Ask about generic consent for brand shopping.',
 };
+
+function confirmFirst(group, original) {
+  const [term] = group.suggestions ?? [];
+  if (!term) return group;
+  const retailer = group.retailerId;
+  return { ...group, suggestions: [term], confirmation: {
+    question: `Você quis dizer ${term}?`,
+    onYes: { query: term, retailer },
+    onNo: { query: original, retailer, declinedTerm: term },
+  } };
+}
+
+export function catalogReply(name, args, data) {
+  if (name === 'search') return { ...data, results: data.results.map(group => confirmFirst(group, args.query)) };
+  if (name === 'suggest' && !args.declinedTerm && !args.listAll) return confirmFirst(data, args.query);
+  return data;
+}
 export function createServer(monitor = null) {
   const server = new McpServer({ name: 'farmacias-br', version }, {
     instructions: 'Farmácias BR covers Drogasil, Pague Menos, Drogaria São Paulo and Farmácias Independente. Use pharmacy_* for multi-chain work. plan_purchase and find_nearby_stock cover Drogasil branches only. ' + shoppingInstructions
@@ -31,7 +48,7 @@ export function createServer(monitor = null) {
     registry.registerTool('pharmacy_' + name, { description, inputSchema: schemas[name],
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: name !== 'retailers' } }, async args => {
       const value = await request(name, args);
-      const data = Array.isArray(value) ? { retailers: value } : value;
+      const data = catalogReply(name, args, Array.isArray(value) ? { retailers: value } : value);
       return { content: [{ type: 'text', text: JSON.stringify(data) }], structuredContent: data };
     });
   }

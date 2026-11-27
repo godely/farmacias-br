@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs';
 import {
-  getProductsBySku, productInfo, searchProducts, searchStockWindows, stockQuantity,
+  getProductsBySku, productInfo, resolveMedication, searchProducts, searchStockWindows, stockQuantity,
 } from 'drogasil-cli';
 import { retailer as pagueMenos } from 'paguemenos-cli';
 import { retailer as saoPaulo } from 'drogariasaopaulo-cli';
@@ -38,6 +39,40 @@ const drogasil = {
   },
 };
 
-export const providers = { drogasil, paguemenos: pagueMenos, drogariasaopaulo: saoPaulo,
+const dcbVocabulary = new Set(readFileSync(new URL('./data/dcb-names.txt', import.meta.url), 'utf8').trimEnd().split('\n'));
+const nameKey = term => term.normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+// Drug identity may corroborate a spelling. Only the target retailer can
+// corroborate a presentation, SKU, price or stock.
+export function withMedicationNames(source, resolve = resolveMedication) {
+  return { ...source, async suggest(query, limit = 7) {
+    const [terms, name] = await Promise.all([
+      source.suggest(query, Math.max(limit, 7)),
+      resolve(query).catch(() => null),
+    ]);
+    // A literal DCB completion takes priority over a fuzzy brand (amoxic → amoxicilina).
+    // Inspect only terms proposed by this retailer. A DCB alone establishes no local offer.
+    const prefix = nameKey(query);
+    const completion = terms.find(term => {
+      const key = nameKey(term);
+      return key !== prefix && key.startsWith(prefix) && dcbVocabulary.has(key);
+    });
+    if (completion) return [completion, ...terms.filter(term => term !== completion)].slice(0, limit);
+    const corrected = name?.interpretation?.interpreted;
+    if (!corrected || !['ingredient', 'brand'].includes(name.kind)) return terms.slice(0, limit);
+    const same = term => nameKey(term) === nameKey(corrected);
+    let candidate = terms.find(same);
+    if (!candidate) {
+      // An English alias or a severe typo can be absent from autocomplete.
+      // Require a strict catalog match before adding that interpretation.
+      try {
+        if ((await source.search(corrected, 1, 1)).length) candidate = corrected;
+      } catch { /* The retailer's original suggestions remain usable. */ }
+    }
+    return candidate ? [candidate, ...terms.filter(term => !same(term))].slice(0, limit) : terms.slice(0, limit);
+  } };
+}
+
+export const providers = { drogasil, paguemenos: withMedicationNames(pagueMenos), drogariasaopaulo: saoPaulo,
   farmaciaindependente: independente };
 export const retailPartners = [pagueMenos, saoPaulo, independente];

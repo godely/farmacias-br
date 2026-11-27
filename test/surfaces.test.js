@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { localApp } from '../src/server.js';
+import { localApp, catalogReply } from '../src/server.js';
 import { getStock, listRetailers, request, searchCatalog, suggestTerms } from '../src/index.js';
 import { observations } from '../src/monitoring.js';
 
@@ -76,6 +76,31 @@ test('a suggestion outage preserves the catalog miss, and a failed catalog does 
   assert.equal(calls, 1);
 });
 
+test('MCP exposes one question, routes yes to the named retailer and excludes the declined term on no', async () => {
+  for (const [query, term] of [['morfi','morfina'], ['ibuporfeno','ibuprofeno'], ['loartadina','loratadina']]) {
+    const args = {query, retailer:'paguemenos'};
+    let ranking = [term, term+' 10mg', term+' gotas'];
+    const sources = {paguemenos: {search: async q => q === term ? [{name:term, sku:'1'}] : [], suggest: async () => ranking}};
+    const raw = await searchCatalog(args, sources);
+    const [group] = catalogReply('search', args, raw).results;
+    assert.deepEqual(group.suggestions, [term]);
+    assert.deepEqual(group.products, []);
+    assert.equal(group.confirmation.question, 'Você quis dizer '+term+'?');
+    assert.equal(JSON.stringify(group).includes('gotas'), false);
+    assert.equal((await searchCatalog(group.confirmation.onYes, sources)).results[0].status, 'matches');
+    assert.deepEqual(catalogReply('suggest', args, await suggestTerms(args,sources)).suggestions, [term]);
+    assert.deepEqual(catalogReply('suggest', {...args,listAll:true}, await suggestTerms(args,sources)).suggestions, ranking);
+    ranking = [term+' gotas', term.toUpperCase(), query, term+' 10mg'];
+    const no = group.confirmation.onNo;
+    assert.deepEqual(catalogReply('suggest', no, await suggestTerms(no,sources)), {
+      retailerId:'paguemenos', status:'suggestions', suggestions:[term+' gotas',term+' 10mg'] });
+    ranking = [term];
+    assert.equal((await suggestTerms(no, sources)).status, 'no_suggestions');
+    ranking = [];
+    assert.equal(catalogReply('search', args, await searchCatalog(args,sources)).results[0].confirmation, undefined);
+  }
+});
+
 test('bounded and strict public inputs', async () => {
   for (const [operation, input] of [
     ['constructor',{}],['search',{query:' '}],['search',{query:'x',limit:51}],['search',{query:'x',retailer:'other'}],
@@ -132,4 +157,22 @@ test('an independent name search can resolve a missing primary reference without
     assert.equal(r.status,'choose_reference'); assert.equal(r.candidates[0].retailerId,'farmaciaindependente');
     assert.ok(!r.verifiedOffers?.length);
   }
+});
+
+test('cross-retailer name evidence preserves the target catalog and presentation', async () => {
+  const { withMedicationNames } = await import('../src/providers.js');
+  const source = { suggest: async () => ['outra'], search: async q => q === 'paracetamol 500mg' ? [{sku:'local'}] : [] };
+  const resolved = query => async () => ({kind:'ingredient', interpretation:{interpreted:query}});
+  assert.deepEqual(await withMedicationNames(source,resolved('paracetamol 500mg')).suggest('acetaminophen 500mg'), ['paracetamol 500mg','outra']);
+  assert.deepEqual(await withMedicationNames(source,resolved('paracetamol 750mg')).suggest('acetaminophen 750mg'), ['outra']);
+  for (const unavailable of [async () => {throw Error('offline');}, async () => ({status:'ambiguous'})]) {
+    assert.deepEqual(await withMedicationNames(source,unavailable).suggest('exemplo'), ['outra']);
+  }
+});
+
+test('a full DCB prefix completion takes priority over a similar brand', async () => {
+  const { withMedicationNames } = await import('../src/providers.js');
+  const source = { suggest: async () => ['amoxil','amoxicilina'] };
+  const resolve = async () => ({kind:'brand', interpretation:{interpreted:'amoxil'}});
+  assert.deepEqual(await withMedicationNames(source,resolve).suggest('Amóxic', 1), ['amoxicilina']);
 });

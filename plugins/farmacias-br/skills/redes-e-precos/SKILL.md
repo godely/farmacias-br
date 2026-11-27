@@ -1,6 +1,6 @@
 ---
 name: redes-e-precos
-description: Use para procurar produtos, conferir estoque ou comparar preços entre Drogasil, Pague Menos, Drogaria São Paulo e Farmácias Independente por CEP no Brasil.
+description: Use para buscar nomes completos, incompletos ou com erros de digitação na Pague Menos, responder a confirmações de nomes e consultar produtos, preços e estoque de quatro redes brasileiras.
 ---
 
 Para “em qual rede sai mais barato?”, use pharmacy_prices com a apresentação pedida e o CEP compartilhado. Um SKU interno pertence a uma só rede. Informe o identificador dela junto com o SKU. Um GTIN válido identifica o pacote entre redes. Se houver mais de uma concentração, forma, liberação ou tamanho de caixa possível, apresente as opções para a pessoa escolher. Para compras por marca, pergunte uma vez se pode incluir genéricos, exceto quando a preferência já foi informada. Não misture genéricos com ofertas da mesma caixa.
@@ -9,6 +9,12 @@ Ordene verifiedOffers por preço e mostre rede, vendedor, preço de venda e cond
 
 Para uma pesquisa de catálogo sem localização, use pharmacy_search. Para um produto de uma rede específica, use pharmacy_product com a rede e o SKU. Para estoque em uma rede específica, use pharmacy_stock. A Drogasil informa unidades por filial. Pague Menos e Drogaria São Paulo confirmam atendimento para a quantidade solicitada. Farmácias Independente pode informar uma faixa de estoque em filiais do município. Preserve as diferenças entre nenhuma filial participante, estoque zero, quantidade desconhecida e falha temporária.
 
-Quando a busca da Pague Menos devolver sugestões, ofereça o primeiro termo (“Você quis dizer morfina?”) ou mostre as alternativas se a pessoa pedir. Aguarde a escolha e consulte pharmacy_search com o termo escolhido e retailer `paguemenos`. Para completar um prefixo explicitamente, use pharmacy_suggest. Para afirmar que um produto contém um princípio ativo, confirme-o no campo activeIngredients.
+Na Pague Menos, envie à `pharmacy_search` exatamente o texto digitado, inclusive se parecer incompleto ou errado. Se vier `confirmation`, a primeira resposta ao usuário é somente a pergunta de `confirmation.question` (por exemplo, “Você quis dizer loratadina?”). Aguarde a resposta no chat. Faça isso para qualquer nome. A pessoa já sabe a qual proposta está respondendo.
+
+- “Sim”, “isso” ou “pode” confirma o termo. Chame `pharmacy_search` uma vez com `confirmation.onYes` e apresente os produtos retornados.
+- “Não” pede as outras sugestões. Chame `pharmacy_suggest` com `confirmation.onNo`, mostre as alternativas retornadas e aguarde a escolha. Se estiverem vazias, peça outra grafia ou o nome da embalagem.
+- Uma escolha explícita vai direto para `pharmacy_search` na mesma rede. Se a pessoa pedir todas as sugestões desde o início, use `pharmacy_suggest` com `listAll: true`.
+
+Para afirmar que um produto contém um princípio ativo, confirme-o em `activeIngredients`. Uma falha da fonte deve ser comunicada como falha da consulta.
 
 Para a loja Drogasil mais próxima, listas de compras e perguntas factuais sobre medicamentos, use as instruções de nearby-stock e compare-presentations. Os planos de compra por filial calculados por plan_purchase abrangem a Drogasil. Se uma pesquisa for somente informativa, responda sem CEP e sem pesquisa de preços ou estoque.
