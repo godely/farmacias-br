@@ -176,3 +176,13 @@ test('a full DCB prefix completion takes priority over a similar brand', async (
   const resolve = async () => ({kind:'brand', interpretation:{interpreted:'amoxil'}});
   assert.deepEqual(await withMedicationNames(source,resolve).suggest('Amóxic', 1), ['amoxicilina']);
 });
+
+test('a text-only client gets the exact prompt and executable follow-ups', async () => {
+  const { toolReply } = await import('../src/server.js');
+  const args = {retailer:'paguemenos',query:'exem'};
+  const res = toolReply('search', args, {results:[{retailerId:args.retailer, products:[], suggestions:['exemplo','exemplo 10mg']}]});
+  assert.equal(res.structuredContent.reply, 'Você quis dizer exemplo?');
+  assert.match(res.content[0].text, /pharmacy_suggest.*"declinedTerm":"exemplo"/);
+  assert.match(res.content[0].text, /pharmacy_search.*"query":"exemplo"/);
+  assert.ok(!JSON.stringify(res).includes('10mg'));
+});
