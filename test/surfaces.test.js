@@ -186,3 +186,16 @@ test('a text-only client gets the exact prompt and executable follow-ups', async
   assert.match(res.content[0].text, /pharmacy_search.*"query":"exemplo"/);
   assert.ok(!JSON.stringify(res).includes('10mg'));
 });
+
+test('both additional chains keep the retailer on yes and ask it for alternatives on no', async () => {
+  for (const retailer of ['farmaciaindependente','drogariasaopaulo']) {
+    const source = {search:async()=>[],suggest:async()=>['morfina'],
+      alternatives:async(q,declined)=>{assert.equal(q,'morfi');assert.equal(declined,'morfina');return ['morfina 10 mg'];}};
+    const args={query:'morfi',retailer};
+    const group=catalogReply('search',args,await searchCatalog(args,{[retailer]:source})).results[0];
+    assert.equal(group.confirmation.question,'Você quis dizer morfina?');
+    assert.deepEqual(group.confirmation.onYes,{query:'morfina',retailer});
+    const no=await suggestTerms(group.confirmation.onNo,{[retailer]:source});
+    assert.deepEqual(no,{status:'suggestions',retailerId:retailer,suggestions:['morfina 10 mg']});
+  }
+});

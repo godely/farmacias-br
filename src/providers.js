@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { isDcbName } from 'drogasil-cli/medication-catalog';
 import {
   getProductsBySku, productInfo, resolveMedication, searchProducts, searchStockWindows, stockQuantity,
 } from 'drogasil-cli';
@@ -39,7 +39,6 @@ const drogasil = {
   },
 };
 
-const dcbVocabulary = new Set(readFileSync(new URL('./data/dcb-names.txt', import.meta.url), 'utf8').trimEnd().split('\n'));
 const nameKey = term => term.normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase().replace(/\s+/g, ' ');
 
 // Drug identity may corroborate a spelling. Only the target retailer can
@@ -55,7 +54,7 @@ export function withMedicationNames(source, resolve = resolveMedication) {
     const prefix = nameKey(query);
     const completion = terms.find(term => {
       const key = nameKey(term);
-      return key !== prefix && key.startsWith(prefix) && dcbVocabulary.has(key);
+      return key !== prefix && key.startsWith(prefix) && isDcbName(key);
     });
     if (completion) return [completion, ...terms.filter(term => term !== completion)].slice(0, limit);
     const corrected = name?.interpretation?.interpreted;

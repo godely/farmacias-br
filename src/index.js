@@ -15,7 +15,7 @@ export const schemas = {
   retailers: z.strictObject({}),
   search: z.strictObject({ query, retailer: retailer.optional(), page: z.number().int().min(1).max(100).default(1),
     limit: z.number().int().min(1).max(50).default(10) }),
-  suggest: z.strictObject({ query, retailer: z.literal('paguemenos').default('paguemenos'),
+  suggest: z.strictObject({ query, retailer: z.enum(['paguemenos','drogariasaopaulo','farmaciaindependente']).default('paguemenos'),
     declinedTerm: query.optional().describe('Previously proposed term the user declined. Return remaining suggestions.'),
     listAll: z.boolean().optional().describe('Use only when the user explicitly requests a list of terms.'),
     limit: z.number().int().min(1).max(50).default(7) }),
@@ -43,7 +43,10 @@ function summary(row, id) {
 export async function suggestTerms(args, sources = providers) {
   const { query, retailer, limit, declinedTerm } = schemas.suggest.parse(args);
   try {
-    let suggestions = await sources[retailer].suggest(query, declinedTerm ? Math.min(limit + 2, 50) : limit);
+    const source = sources[retailer];
+    let suggestions = declinedTerm && source.alternatives
+      ? await source.alternatives(query, declinedTerm, limit)
+      : await source.suggest(query, declinedTerm ? Math.min(limit + 2, 50) : limit);
     if (declinedTerm) {
       const excluded = new Set([termKey(query), termKey(declinedTerm)]);
       suggestions = suggestions.filter(term => !excluded.has(termKey(term))).slice(0, limit);
@@ -73,7 +76,7 @@ export async function searchCatalog(args, sources = providers) {
           }
           return fields;
         }) };
-      if (id === 'paguemenos' && page === 1 && !rows.length) {
+      if (sources[id].suggest && page === 1 && !rows.length) {
         const completion = await suggestTerms({ query, retailer: id }, sources);
         group.suggestions = completion.suggestions.filter(term => termKey(term) !== termKey(query));
         group.suggestionStatus = completion.status === 'source_failed' ? 'source_failed'
