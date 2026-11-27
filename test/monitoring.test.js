@@ -14,7 +14,7 @@ test('records the failed basket line, ordinary zero stock, and the successful de
   } });
   const query = 'Segredo 2 mg 30 comprimidos de liberação imediata';
   const args = { items: [{query}, {query:'123456789'}], origin: {zipcode:'11111-111'} };
-  const result = {tables:[{status:'no_reference'}, {status:'matches', unavailable:[{name:'Segredo'}],rows:[]}]};
+  const result = {tables:[{status:'no_reference'}, {status:'no_stock', unavailable:[{name:'Segredo'}],rows:[]}]};
   assert.equal(await monitor.run('plan_purchase', args, async () => result), result);
   await monitor.run('plan_purchase', args, async () => ({status:'needs_generic_preference'}));
   await assert.rejects(monitor.run('pharmacy_stock', {retailer:'paguemenos', sku:'123456789'},
@@ -38,6 +38,8 @@ test('isolates a source failure from an uncovered area and handles missing SKU e
     issues:[{retailer:'Pague Menos',status:'location_lookup_failed',sku:'private'}] });
   assert.deepEqual(rows.map(r=>r.outcome),['ok','upstream_failure','outside_coverage']);
   assert.deepEqual(observations('get_products',{}, {products:[null,{sku:'42'}]}).map(r=>r.outcome),['lookup_miss','ok']);
+  assert.equal(observations('find_nearby_stock',{sku:'7'},{scope:'nearest',nearestStore:{quantity:0}})[0].outcome,'zero_stock');
+  assert.equal(observations('pharmacy_stock',{sku:'7'},{offers:[{localStatus:'unavailable'}]})[0].outcome,'zero_stock');
   assert.equal(createMonitoring(''),null);
 });
 test('a broken Sentry transport leaves real MCP results and error behavior intact', async () => {

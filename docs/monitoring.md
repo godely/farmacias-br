@@ -14,7 +14,7 @@ In **Explore → Metrics**, select `farmacias.lookup.outcomes` and sum the count
 | catalog_incomplete | Details needed for equivalence or price are missing. |
 | upstream_failure, handler_exception, timeout | A source reported failure, a handler threw, or a timed operation expired. |
 | stock_unknown | A stock check left availability unresolved. |
-| zero_stock, outside_coverage, clarification, ok | Expected outcomes included in the denominator. These do not create issues. |
+| zero_stock, insufficient_stock, outside_coverage, clarification, ok | Expected outcomes included in the denominator. These do not create issues. |
 | canary_mismatch, service_exit | A synthetic catalog check failed or the service terminated abnormally. |
 
 Only enumerated dimensions, application version, counters, timestamps and generated event IDs leave the service. For example a query can be classified as `name.strength.form.release.pack`. Drug names, SKUs, quantities, query text, CEPs, coordinates, IPs of callers, request bodies, headers, exception messages and raw stack traces are excluded from the event. Each issue is also written to the service journal with the same safe dimensions. The transport enforces a bounded in-flight queue and respects Sentry rate limits. Lost deliveries are counted in the journal. Sentry outages, process loss and account quotas can reduce online counts.
