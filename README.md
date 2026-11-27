@@ -56,3 +56,7 @@ Em uma instalação remota pessoal, aponte o conector do cliente para o caminho 
 ## Amostra de cobertura nacional
 
 Em 27 de novembro de 2026, verificamos uma apresentação de paracetamol em um CEP de cada capital das 26 unidades estaduais e do Distrito Federal. As 27 consultas retornaram resultados dos quatro adaptadores. Pague Menos confirmou oferta para os 27 CEPs e Drogaria São Paulo para 15. A Drogasil informou filiais em 22 das 27 janelas iniciais de estoque. Farmácias Independente indicou 26 municípios fora de seu diretório local. No município restante, essa caixa específica não teve correspondência exata. Esse teste mede a resposta das fontes para a amostra; o atendimento depende de CEP, produto e momento.
+
+A consulta de estoque da Drogasil também aceita `--lat` e `--lon` ou um objeto JSON `coordinates` com `latitude` e `longitude`. Os adaptadores que verificam a entrega por CEP retornam `requires_cep` quando recebem apenas um ponto. Quando o catálogo de referência não identifica um nome, a API procura candidatos nos demais catálogos para que a pessoa escolha uma apresentação.
+
+A resposta de preços inclui as modalidades que cada rede confirmou, taxas informadas e identificação e endereço dos pontos de retirada. Uma opção de retirada confirma o atendimento simulado para aquela quantidade. Para repetir o ensaio local de concorrência, rejeição de entradas e persistência de mil produtos, execute `node scripts/stress.mjs` na cópia de desenvolvimento. O ensaio usa o serviço em loopback e um catálogo sintético.

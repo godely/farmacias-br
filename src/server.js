@@ -2,6 +2,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
+import { createRequire } from 'node:module';
+const { version } = createRequire(import.meta.url)('../package.json');
 import { registerDrogasilTools, shoppingInstructions } from 'drogasil-cli/mcp-tools';
 import { retailPartners } from './providers.js';
 import { operations, request, schemas } from './index.js';
@@ -10,11 +12,11 @@ const descriptions = {
   retailers: 'List supported Brazilian retailers and the stock and price evidence each can provide.',
   search: 'Search catalogs by name in all four pharmacies or one named retailer. Returns distinct retailer/SKU pairs and availability of each source. Catalog search needs no CEP.',
   product: 'Read facts and online prices for a retailer-specific SKU. Do not infer a prescription rule from a missing fact.',
-  stock: 'Check one retailer and SKU at the supplied CEP. Drogasil returns branch quantities, VTEX retailers quote fulfillment, Independente reports city-level branch stock bands. Only report the evidence actually returned.',
-  prices: 'Compare the same product across Brazilian pharmacies by CEP. Supply a name, GTIN, Drogasil SKU, or a SKU with its owning retailer. Rank locally verified prices separately from online-only offers. Ask about generic consent for brand shopping.',
+  stock: 'Check one retailer and SKU at the supplied location. Drogasil also accepts exact coordinates and returns branch quantities, VTEX retailers quote fulfillment, Independente reports city-level branch stock bands. Only report the evidence actually returned.',
+  prices: 'Compare the same product across Brazilian pharmacies by CEP. Supply a name, GTIN, Drogasil SKU, or a SKU with its owning retailer. This call identifies every checked chain and returns its status. Rank locally verified prices separately from online-only offers. For choose_reference, let the user identify the pack, then send its retailer and SKU. Ask about generic consent for brand shopping.',
 };
 export function createServer() {
-  const server = new McpServer({ name: 'farmacias-br', version: '0.1.0' }, {
+  const server = new McpServer({ name: 'farmacias-br', version }, {
     instructions: 'Farmácias BR covers Drogasil, Pague Menos, Drogaria São Paulo and Farmácias Independente. Use pharmacy_* for multi-chain work. plan_purchase and find_nearby_stock cover Drogasil branches only. ' + shoppingInstructions
   });
   registerDrogasilTools(server, z, retailPartners);
