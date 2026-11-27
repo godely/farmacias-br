@@ -5,7 +5,7 @@ import { createTransport, getEnvelopeEndpointWithUrlEncodedAuth, makeDsn } from 
 const release = 'farmacias-br@' + createRequire(import.meta.url)('../package.json').version;
 const chains = new Map([
   ['Drogasil', 'drogasil'], ['Pague Menos', 'paguemenos'],
-  ['Drogaria São Paulo', 'drogariasaopaulo'], ['Farmácias Independente', 'farmaciaindependente'],
+  ['Drogaria São Paulo', 'drogariasaopaulo'],
 ]);
 const operations = new Set(['retailers', 'search', 'suggest', 'product', 'info', 'stores', 'compare', 'basket', 'snapshot', 'read_snapshot', 'stock', 'prices', 'get_medication_info',
   'plan_purchase', 'search_products', 'get_products', 'find_nearby_stock', 'compare_products',

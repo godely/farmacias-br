@@ -11,7 +11,7 @@ async function worker() {
     const [state, city, zipcode] = lines.shift().split('\t');
     try {
       const data = await comparePrices({ query: sku, zipcode });
-      assert.equal(data.checkedRetailers.length, 4);
+      assert.equal(data.checkedRetailers.length, 3);
       const prices = data.verifiedOffers.map(r => r.currentPrice);
       assert.deepEqual(prices, [...prices].sort((a,b) => a-b));
       assert.ok(data.verifiedOffers.every(r => r.priceScope === 'verified_for_cep' && r.fulfillment.length && r.gtin === data.reference.gtin));

@@ -9,7 +9,7 @@ import {promisify} from 'node:util';
 const execute=promisify(execFile);
 const origins=process.argv.slice(2);
 assert.ok(origins.length===2 && origins.every(s=>/^\d{5}-?\d{3}$/.test(s)), 'Supply both test CEPs');
-const samples={paguemenos:'1633706',drogariasaopaulo:'883646',farmaciaindependente:'94043081'};
+const samples={paguemenos:'1633706',drogariasaopaulo:'883646'};
 let checks=0;
 for(const [i,[retailer,sku]] of Object.entries(samples).entries()) {
   const dir=dirname(fileURLToPath(import.meta.resolve(retailer+'-cli')));
@@ -29,7 +29,6 @@ for(const [i,[retailer,sku]] of Object.entries(samples).entries()) {
   assert.ok(barcode.some(r=>r.sku===sku) && barcode.every(r=>r.gtin===p.gtin)); checks++;
   const stock=await call('stock',sku,'--cep',origins[i%2],'--quantity','2');
   assert.ok(stock.length && stock.every(r=>r.sku===sku && r.requestedQuantity===2)); checks++;
-  if (retailer==='farmaciaindependente') {assert.ok((await call('stores')).some(b=>b.address && b.city)); checks++;}
   console.log(retailer,'passed');
 }
 console.log(JSON.stringify({checks}));

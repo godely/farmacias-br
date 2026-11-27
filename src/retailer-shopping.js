@@ -82,20 +82,6 @@ export async function retailerBasket({retailer, items, zipcode}, source) {
     } else chosen.push({offer:rows[0],quantity});
   }
   if (pending.length) return {...base,status:'unresolved_items',pending};
-  if (!source.basket) {
-    const quantities=new Map();
-    for (const {offer,quantity} of chosen) {
-      quantities.set(offer.sku,{offer,quantity:(quantities.get(offer.sku)?.quantity??0)+quantity});
-    }
-    const results=[];
-    for (const {offer,quantity} of quantities.values()) {
-      try { results.push(listed(await source.local(offer,zipcode,quantity),retailer)); }
-      catch { results.push({...listed(offer,retailer),localStatus:'lookup_failed',requestedQuantity:quantity,quantityVerified:false}); }
-    }
-    const failed=results.filter(r=>r.localStatus==='lookup_failed').length;
-    const status=failed===results.length?'source_failed':failed?'partial':'quantity_unverified';
-    return {...base,status,items:results, commonPickupPoints:[],estimatedProductTotalBRL:null};
-  }
   const quotes=await source.basket(chosen,zipcode);
   const available=quotes.filter(q=>q.localStatus==='available');
   const complete=available.length===quotes.length && quotes.length>0;

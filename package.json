@@ -12,8 +12,7 @@
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@sentry/core": "10.78.0",
     "drogariasaopaulo-cli": "https://codeload.github.com/godely/drogariasaopaulo-cli/tar.gz/d31daa6f1c3dcaa1bd97ac4c43dd510165a50fd2",
-    "drogasil-cli": "https://codeload.github.com/godely/drogasil-cli/tar.gz/91db3282b53fe7558fc31cd272efb07830ca60fb",
-    "farmaciaindependente-cli": "https://codeload.github.com/godely/farmaciaindependente-cli/tar.gz/eb613def357c1e5dc8b8ab78307870efa70a7de7",
+    "drogasil-cli": "https://codeload.github.com/godely/drogasil-cli/tar.gz/6e33398d12e4745c7853a6ffce4e4126af37ebca",
     "paguemenos-cli": "https://codeload.github.com/godely/paguemenos-cli/tar.gz/0c855429a80feb9815b385901b63e1aa7b7ec1ba",
     "zod": "^4.0.0"
   },

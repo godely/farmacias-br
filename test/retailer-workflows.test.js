@@ -11,7 +11,7 @@ test('bulk preserves missing, failed and repeated SKUs and barcode lookups valid
     if (sku==='3') throw Error('outage');
     return sku==='1' ? [{sku,name:'A'}] : [];
   },byGtin:async()=>[{name:'right',gtin:'7891058002602'},{name:'wrong',gtin:'7899547543766'}]};
-  const retailer='farmaciaindependente', sources={[retailer]:source};
+  const retailer='drogariasaopaulo', sources={[retailer]:source};
   const batch=await getProduct({retailer,skus:['2','3','1','1']},sources);
   assert.deepEqual(calls,['2','3','1']);
   assert.deepEqual(batch.results.map(x=>x.status),['unknown_sku','source_failed','matches','matches']);
@@ -23,7 +23,7 @@ test('fact-only paths preserve concentration, pack and explicit classification, 
   const row={sku:'1',name:'Exemplo 10 mg/mL gotas 20 mL', facts:{'Tipo de Medicamento':['Genéricos'],'Prescrição Médica':['Sob prescrição']}};
   const source={facts:async q=>q==='bad'?Promise.reject(Error('offline')):[row],
     local:assert.fail,search:assert.fail,product:assert.fail};
-  const d=await catalogInfo({retailer:'farmaciaindependente',queries:['1','bad'],page:1,limit:3},source);
+  const d=await catalogInfo({retailer:'drogariasaopaulo',queries:['1','bad'],page:1,limit:3},source);
   assert.deepEqual(d.results.map(r=>r.status),['matches','source_failed']);
   const card=d.results[0].products[0];
   assert.deepEqual(card.strengths,['10 mg/mL']); assert.deepEqual(card.packs,['20 mL']);
@@ -62,10 +62,7 @@ test('only jointly quoted items and identical pickup IDs yield a complete basket
   assert.equal(partial.status,'partial');assert.equal(partial.estimatedProductTotalBRL,null);assert.deepEqual(partial.commonPickupPoints,[]);
   const pending=await retailerBasket(args,{product:async sku=>[...await product(sku),{sku,sellerId:'B'}],basket:assert.fail});
   assert.equal(pending.pending[0].status,'choose_seller');
-  const bands=await retailerBasket({...args,items:[args.items[0],args.items[0]]},{product,local:async (row,cep,q)=>{
-    assert.equal(q,4);return {...row,requestedQuantity:q,quantityVerified:false,branches:[{reportedStock:'baixo'}]};
-  }});
-  assert.equal(bands.status,'quantity_unverified');assert.equal(bands.estimatedProductTotalBRL,null);
+
 });
 
 test('a partner snapshot saves all sellers per SKU, deduplicates overlapping queries and preserves a partial failed run',async t=>{

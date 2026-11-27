@@ -28,15 +28,15 @@ async function check(retailer, name, run) {
     console.error(JSON.stringify({retailer,check:name,result:'fail',detail:error.message.split('\n')[0]}));
   }
 }
-const genericAnchor={paguemenos:'22773',drogariasaopaulo:'3530',farmaciaindependente:'20812'};
-const branded = {paguemenos:'3179',drogariasaopaulo:'19119',farmaciaindependente:'945'};
-const sample = {paguemenos:'1633706', drogariasaopaulo:'883646', farmaciaindependente:'94043081'};
+const genericAnchor={paguemenos:'22773',drogariasaopaulo:'3530'};
+const branded = {paguemenos:'3179',drogariasaopaulo:'19119'};
+const sample = {paguemenos:'1633706', drogariasaopaulo:'883646'};
 try {
   await client.connect(new StdioClientTransport({command:process.execPath,
     args:[fileURLToPath(new URL('../bin/server.js',import.meta.url))],
     env:{FARMACIAS_SENTRY_DSN:'',DROGASIL_SNAPSHOT_DB:join(directory,'runs.sqlite3')}}));
   const registry = (await call('retailers',{})).retailers;
-  assert.equal(registry.length,4);
+  assert.deepEqual(registry.map(r=>r.id),['drogasil','paguemenos','drogariasaopaulo']);
   for (const [retailer,sku] of Object.entries(sample)) {
     const args={retailer};
     let gtin;
@@ -93,11 +93,7 @@ try {
         for (const offer of d.offers) {
           assert.equal(offer.sku,sku);
           assert.equal(offer.requestedQuantity,quantity);
-          if (retailer==='farmaciaindependente') {
-            assert.equal(offer.quantityVerified,false);
-            assert.ok(offer.branches.every(b=>b.id && !Object.hasOwn(b,'quantity')));
-            assert.equal(offer.priceScope,'anonymous_online');
-          } else if(offer.localStatus==='available') {
+          if(offer.localStatus==='available') {
             assert.equal(offer.priceScope,'verified_for_cep');
             assert.ok(offer.methods.length && offer.methods.every(m=>['delivery','pickup-in-point'].includes(m.channel)));
           } else {
@@ -115,11 +111,11 @@ try {
       assert.equal(missing.status,'unknown_sku');
       assert.deepEqual(missing.offers,[]);
     });
-    await check(retailer,'compare local SKU across all four catalogs',async()=>{
+    await check(retailer,'compare local SKU across active catalogs',async()=>{
       const d=await call('prices',{...args,query:sku,zipcode:origins[1]});
       assert.equal(d.status,'matched');
       assert.equal(d.reference.gtin,gtin);
-      assert.equal(new Set(d.checkedRetailers.map(r=>r.retailer)).size,4);
+      assert.equal(new Set(d.checkedRetailers.map(r=>r.retailer)).size,3);
       assert.ok(d.checkedRetailers.every(r=>r.status!=='source_failed'));
       assert.ok(!(d.issues??[]).length);
       const prices=d.verifiedOffers.map(p=>p.currentPrice);
@@ -156,22 +152,10 @@ try {
       const d=await call('basket',{...args,zipcode:origins[1],items:[{sku,quantity:2},{sku:branded[retailer]}]});
       assert.equal(d.items.length,2);
       assert.deepEqual(d.items.map(p=>[p.sku,p.requestedQuantity]),[[sku,2],[branded[retailer],1]]);
-      if(retailer==='farmaciaindependente') {
-        assert.equal(d.status,'quantity_unverified');
-        assert.ok(d.items.every(i=>i.quantityVerified===false));
-        assert.equal(d.estimatedProductTotalBRL,null);
-      } else {
-        assert.ok(['fulfillable','partial','unavailable','unconfirmed'].includes(d.status));
+      assert.ok(['fulfillable','partial','unavailable','unconfirmed'].includes(d.status));
         if(d.status==='fulfillable') assert.ok(d.items.every(i=>i.priceScope==='verified_for_cep'));
         for(const point of d.commonPickupPoints) assert.ok(d.items.every(i=>i.methods.some(m=>m.pickupPointId===point.id)));
-      }
       return {status:d.status,commonPickupPoints:d.commonPickupPoints.length,total:d.estimatedProductTotalBRL};
-    });
-    if (retailer==='farmaciaindependente') await check(retailer,'store directory pages',async()=>{
-      const a=await call('stores',{...args,page:1,limit:1}),b=await call('stores',{...args,page:2,limit:1});
-      assert.ok(a.total>1 && a.stores[0].address && b.stores[0].address);
-      assert.notDeepEqual(a.stores[0],b.stores[0]);
-      return a.total;
     });
     await check(retailer,'collect and page a snapshot',async()=>{
       const start=await call('snapshot',{...args,queries:['loratadina'],maxItems:2});

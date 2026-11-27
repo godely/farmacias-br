@@ -6,7 +6,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 const retailer = process.argv[2] ?? 'paguemenos';
-const expectedSkus = {paguemenos:['6974','6981','7191'],drogariasaopaulo:['55956','56014','55611','268852'],farmaciaindependente:['6933','8918','94037595']};
+const expectedSkus = {paguemenos:['6974','6981','7191'],drogariasaopaulo:['55956','56014','55611','268852']};
 assert.ok(Object.hasOwn(expectedSkus,retailer));
 const cases = {
   prefix: [

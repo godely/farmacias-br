@@ -5,7 +5,6 @@ import {
 import { createRetailer } from 'paguemenos-cli/vtex';
 import { retailer as pagueMenos } from 'paguemenos-cli';
 import { retailer as saoPaulo } from 'drogariasaopaulo-cli';
-import { retailer as independente } from 'farmaciaindependente-cli';
 
 function catalogRow(hit) {
   const info = productInfo(hit);
@@ -80,6 +79,5 @@ export function withMedicationNames(source, resolve = resolveMedication) {
 
 export const providers = { drogasil, paguemenos: withMedicationNames(pagueMenos), drogariasaopaulo: {
     ...saoPaulo, basket:createRetailer({name:saoPaulo.name,site:saoPaulo.site}).basket,
-  },
-  farmaciaindependente: independente };
-export const retailPartners = [pagueMenos, saoPaulo, independente];
+  } };
+export const retailPartners = [pagueMenos, saoPaulo];

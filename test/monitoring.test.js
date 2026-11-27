@@ -34,7 +34,7 @@ test('records the failed basket line, ordinary zero stock, and the successful de
 test('isolates a source failure from an uncovered area and handles missing SKU entries', () => {
   const rows = observations('pharmacy_prices', {query:'Example'}, { checkedRetailers:[
     {retailer:'Drogasil', status:'online_only'}, {retailer:'Pague Menos',status:'no_exact_match'},
-    {retailer:'Farmácias Independente',status:'outside_local_directory'}],
+    {retailer:'Drogaria São Paulo',status:'outside_local_directory'}],
     issues:[{retailer:'Pague Menos',status:'location_lookup_failed',sku:'private'}] });
   assert.deepEqual(rows.map(r=>r.outcome),['ok','upstream_failure','outside_coverage']);
   assert.deepEqual(observations('get_products',{}, {products:[null,{sku:'42'}]}).map(r=>r.outcome),['lookup_miss','ok']);
@@ -50,7 +50,7 @@ test('a broken Sentry transport leaves real MCP results and error behavior intac
   try {
     await server.connect(s); await client.connect(c);
     const response = await client.callTool({name:'pharmacy_retailers',arguments:{}});
-    assert.equal(response.structuredContent.retailers.length,4);
+    assert.equal(response.structuredContent.retailers.length,3);
     monitor.canary(false,'form');
     monitor.serviceExit();
     await new Promise(r=>setImmediate(r));

@@ -3,7 +3,7 @@ name: nearby-stock
 description: Handle Drogasil medication availability and shopping baskets. Ask about generics for named brands before any lookup, then plan all pickups together.
 ---
 
-These instructions cover Drogasil. When the user names Pague Menos, Drogaria São Paulo or Farmácias Independente, use the retailer workflows in redes-e-precos. Keep every SKU attached to its issuing retailer.
+These instructions cover Drogasil. When the user names Pague Menos or Drogaria São Paulo, use the retailer workflows in redes-e-precos. Keep every SKU attached to its issuing retailer.
 
 For shopping by commercial name, including “Tem Frontal 2 mg?” and “Quais as opções de Frontal?”, make your first reply a question **before any Drogasil tool call**, including catalog search or SKU lookup: “Quer que eu veja também os genéricos na mesma apresentação? Eles podem custar menos.” For a mixed basket ask once, naming only the brands. “Frontal, Rivotril e loratadina” → “Quer incluir genéricos para Frontal e Rivotril?” “Só para o Rivotril” → Frontal `includeGenerics: false`, Rivotril `includeGenerics: true`, loratadina unchanged. An exact SKU or explicit “com genéricos”, “só a marca” or “só genéricos” settles the preference for that item only. A CEP, quantity or another line with a SKU leaves the named brands open. If location is missing ask for it in the same turn. Reuse the shared origin.
 

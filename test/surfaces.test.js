@@ -10,20 +10,20 @@ import { localApp, catalogReply } from '../src/server.js';
 import { getStock, listRetailers, request, searchCatalog, suggestTerms } from '../src/index.js';
 import { observations } from '../src/monitoring.js';
 
-test('one source outage leaves three catalog outcomes and preserves retailer-specific SKU identity', async () => {
+test('one source outage leaves separate catalog outcomes and preserves retailer-specific SKU identity', async () => {
   const sources = Object.fromEntries(listRetailers().map(({id}) => [id, { search: async () => [{sku: '1', name: 'Exemplo Genérico'}] }]));
   sources.paguemenos.search = async () => { throw Error('outage'); };
   sources.drogariasaopaulo.search = async () => [];
   const result = await searchCatalog({query:'exemplo'}, sources);
-  assert.deepEqual(result.results.map(group=>group.status), ['matches','source_failed','no_match','matches']);
+  assert.deepEqual(result.results.map(group=>group.status), ['matches','source_failed','no_match']);
   assert.deepEqual(result.results.flatMap(group=>group.products).map(p=>[p.retailerId,p.sku,p.type]),
-    [['drogasil','1','Genérico'],['farmaciaindependente','1','Genérico']]);
+    [['drogasil','1','Genérico']]);
 });
 
 test('missing coverage, unknown SKU, seller failure and stock bands are distinct', async () => {
-  const row = {sku:'31', name:'Produto'}; const options = {retailer:'farmaciaindependente',sku:'31',zipcode:'01001000',quantity:3};
+  const row = {sku:'31', name:'Produto'}; const options = {retailer:'paguemenos',sku:'31',zipcode:'01001000',quantity:3};
   const provider = {serves:async()=>false, product:async()=>assert.fail()};
-  const sources = {farmaciaindependente:provider};
+  const sources = {paguemenos:provider};
   assert.equal((await getStock(options,sources)).status, 'outside_local_directory');
   provider.serves = async()=>true; provider.product = async()=>[];
   assert.equal((await getStock(options,sources)).status,'unknown_sku');
@@ -123,12 +123,18 @@ test('CLI, HTTP, HTTP MCP and stdio MCP expose the same registry', async t => {
   assert.equal((await post('/api/v1/constructor', {})).status,404);
   assert.equal((await post('/api/v1/retailers', {},{origin:'https://foreign.example'})).status,403);
   const readers = await Promise.all(Array.from({length:24},()=>fetch(url+'/api/v1/retailers').then(r=>r.json())));
-  assert.ok(readers.every(data=>data.length===4));
+  assert.ok(readers.every(data=>data.length===3));
   for (const transport of [new StreamableHTTPClientTransport(new URL(url+'/mcp')),
     new StdioClientTransport({command:process.execPath,args:[fileURLToPath(new URL('../bin/server.js',import.meta.url))]})]) {
     const client = new Client({name:'integration',version:'1'}); await client.connect(transport);
     try {
       const {tools} = await client.listTools();
+      const active=['drogasil','paguemenos','drogariasaopaulo'];
+      assert.deepEqual(listRetailers().map(p=>p.id),active);
+      for (const tool of tools) {
+        const field=tool.inputSchema?.properties?.retailer;
+        if (field?.enum) assert.ok(field.enum.every(id=>active.includes(id)));
+      }
       for (const name of ['plan_purchase','find_nearby_stock','get_medication_info','compare_products','collect_catalog_snapshot','pharmacy_retailers','pharmacy_prices','pharmacy_search','pharmacy_suggest','pharmacy_stock','pharmacy_product','pharmacy_basket','pharmacy_compare','pharmacy_info','pharmacy_stores','pharmacy_snapshot','pharmacy_read_snapshot']) {
         assert.ok(tools.some(tool=>tool.name===name),name);
       }
@@ -152,11 +158,11 @@ test('coordinate-only origins reach the point-capable retailer and request a CEP
 test('an independent name search can resolve a missing primary reference without selecting a near match', async () => {
   const {comparePrices} = await import('../src/index.js');
   const sources=Object.fromEntries(listRetailers().map(({id})=>[id,{search:async()=>[]}]));
-  sources.farmaciaindependente.search=async()=>[{sku:'9',name:'Exemplo gotas 20 mL'}];
+  sources.paguemenos.search=async()=>[{sku:'9',name:'Exemplo gotas 20 mL'}];
   const args={query:'Exemplo gotas 30 mL',zipcode:'01001000'};
   for (const compare of [async()=>({status:'no_reference'}), async()=>{ throw Error('unavailable') }]) {
     const r=await comparePrices(args,{compare,sources});
-    assert.equal(r.status,'choose_reference'); assert.equal(r.candidates[0].retailerId,'farmaciaindependente');
+    assert.equal(r.status,'choose_reference'); assert.equal(r.candidates[0].retailerId,'paguemenos');
     assert.ok(!r.verifiedOffers?.length);
   }
 });
@@ -189,8 +195,8 @@ test('a text-only client gets the exact prompt and executable follow-ups', async
   assert.ok(!JSON.stringify(res).includes('10mg'));
 });
 
-test('both additional chains keep the retailer on yes and ask it for alternatives on no', async () => {
-  for (const retailer of ['farmaciaindependente','drogariasaopaulo']) {
+test('both partner chains keep the retailer on yes and ask it for alternatives on no', async () => {
+  for (const retailer of ['paguemenos','drogariasaopaulo']) {
     const source = {search:async()=>[],suggest:async()=>['morfina'],
       alternatives:async(q,declined)=>{assert.equal(q,'morfi');assert.equal(declined,'morfina');return ['morfina 10 mg'];}};
     const args={query:'morfi',retailer};
@@ -203,8 +209,8 @@ test('both additional chains keep the retailer on yes and ask it for alternative
 });
 
 test('directory outage, unknown item and insufficient local evidence have separate stock outcomes', async()=>{
-  const args={retailer:'farmaciaindependente',sku:'42',zipcode:'01001000'};
+  const args={retailer:'paguemenos',sku:'42',zipcode:'01001000'};
   for (const provider of [{serves:async()=>{throw Error('offline')}},{product:async()=>{throw Error('offline')}}]) {
-    assert.equal((await getStock(args,{farmaciaindependente:provider})).status,'source_failed');
+    assert.equal((await getStock(args,{paguemenos:provider})).status,'source_failed');
   }
 });

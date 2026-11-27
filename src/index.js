@@ -7,7 +7,7 @@ import { providers, retailPartners } from './providers.js';
 
 export const retailerIds = Object.keys(providers);
 const retailer = z.enum(retailerIds);
-const partner = z.enum(['paguemenos','drogariasaopaulo','farmaciaindependente']);
+const partner = z.enum(['paguemenos','drogariasaopaulo']);
 const sku = z.string().trim().regex(/^\d{1,20}$/);
 const zipcode = z.string().trim().regex(/^\d{5}-?\d{3}$/).refine(value => !/^0+-?0+$/.test(value), 'CEP inválido');
 const coordinates = z.strictObject({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180) });
@@ -19,14 +19,14 @@ export const schemas = {
   retailers: z.strictObject({}),
   search: z.strictObject({ query, retailer: retailer.optional(), page: z.number().int().min(1).max(100).default(1),
     limit: z.number().int().min(1).max(50).default(10) }),
-  suggest: z.strictObject({ query, retailer: z.enum(['paguemenos','drogariasaopaulo','farmaciaindependente']).default('paguemenos'),
+  suggest: z.strictObject({ query, retailer: partner.default('paguemenos'),
     declinedTerm: query.optional().describe('Previously proposed term the user declined. Return remaining suggestions.'),
     listAll: z.boolean().optional().describe('Use only when the user explicitly requests a list of terms.'),
     limit: z.number().int().min(1).max(50).default(7) }),
   product: z.strictObject({ retailer, sku:sku.optional(), skus:z.array(sku).min(1).max(100).optional(),
     gtin:z.string().refine(validGtin, 'GTIN inválido').optional() }).refine(
     args => [args.sku,args.skus,args.gtin].filter(Boolean).length === 1, 'Informe SKU, SKUs ou GTIN'),
-  stores: z.strictObject({retailer:z.enum(['drogasil','farmaciaindependente']),
+  stores: z.strictObject({retailer:z.literal('drogasil'),
     page:z.number().int().positive().default(1), limit:z.number().int().min(1).max(100).default(20)}),
   compare: z.strictObject({retailer:partner, query, includeGenerics:z.boolean()}),
   basket: z.strictObject({retailer:partner, zipcode, items:z.array(z.strictObject({sku,
@@ -40,7 +40,7 @@ export const schemas = {
     includeGenerics: z.boolean().default(false) }),
 };
 const stockEvidence = { drogasil: 'branch_quantity', paguemenos: 'fulfillment_quote',
-  drogariasaopaulo: 'fulfillment_quote', farmaciaindependente: 'municipal_branch_stock_band' };
+  drogariasaopaulo: 'fulfillment_quote' };
 
 export function listRetailers() {
   return retailerIds.map(id => ({ id, retailer: providers[id].name, stockEvidence: stockEvidence[id],
@@ -48,7 +48,7 @@ export function listRetailers() {
       stockOrigin:id === 'drogasil' ? ['cep','coordinates'] : ['cep'],
       storeDirectory:typeof providers[id].stores === 'function', nearestBranch:id === 'drogasil', exactBranchQuantity:id === 'drogasil',
       purchasePlan:id === 'drogasil', equivalentPresentations:id === 'drogasil' ? 'native' : 'verified_barcode_bridge',
-      basket:id === 'drogasil' ? 'branch_plan' : id === 'farmaciaindependente' ? 'branch_bands' : 'joint_fulfillment_quote'},
+      basket:id === 'drogasil' ? 'branch_plan' : 'joint_fulfillment_quote'},
     priceEvidence: stockEvidence[id] === 'fulfillment_quote' ? 'cep_quote_if_fulfillable' : 'online_or_reference' }));
 }
 
