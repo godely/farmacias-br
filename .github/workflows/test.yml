@@ -1,0 +1,22 @@
+name: API and transports
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 'lts/*']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm ci
+      - run: npm test
+      - name: Install packed product and run its CLI
+        run: |
+          tarball=$(npm pack --silent)
+          npm install --prefix "$RUNNER_TEMP/consumer" "$PWD/$tarball"
+          "$RUNNER_TEMP/consumer/node_modules/.bin/farmacias" retailers
