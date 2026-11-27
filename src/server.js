@@ -23,6 +23,7 @@ function confirmFirst(group, original) {
   const retailer = group.retailerId;
   return { ...group, suggestions: [term], confirmation: {
     question: `Você quis dizer ${term}?`,
+    onYesTool: 'pharmacy_search', onNoTool: 'pharmacy_suggest',
     onYes: { query: term, retailer },
     onNo: { query: original, retailer, declinedTerm: term },
   } };
@@ -33,6 +34,27 @@ export function catalogReply(name, args, data) {
   if (name === 'suggest' && !args.declinedTerm && !args.listAll) return confirmFirst(data, args.query);
   return data;
 }
+// Some clients render structuredContent and some read only the text blocks.
+export function toolReply(name, args, value) {
+  const data = catalogReply(name, args, Array.isArray(value) ? { retailers: value } : value);
+  const prompt = data.confirmation ?? (data.results?.length === 1 && data.results[0].confirmation);
+  const content = [];
+  let structuredContent = data;
+  if (prompt) {
+    const instructions = [
+      'Responda agora com esta pergunta exata e aguarde:',
+      prompt.question,
+      'Se a pessoa responder “sim”, execute ' + prompt.onYesTool + ' com ' + JSON.stringify(prompt.onYes) + '.',
+      'Se responder “não”, busque as outras sugestões com ' + prompt.onNoTool + ' e os argumentos ' +
+        JSON.stringify(prompt.onNo) + '. Apresente os termos retornados.',
+    ].join('\n');
+    structuredContent = { interaction: 'awaiting_confirmation', reply: prompt.question, nextTurn: instructions, ...data };
+    content.push({type:'text', text:instructions});
+  }
+  content.push({type:'text', text:JSON.stringify(structuredContent)});
+  return {content, structuredContent};
+}
+
 export function createServer(monitor = null) {
   const server = new McpServer({ name: 'farmacias-br', version }, {
     instructions: 'Farmácias BR covers Drogasil, Pague Menos, Drogaria São Paulo and Farmácias Independente. Use pharmacy_* for multi-chain work. plan_purchase and find_nearby_stock cover Drogasil branches only. ' + shoppingInstructions
@@ -48,8 +70,7 @@ export function createServer(monitor = null) {
     registry.registerTool('pharmacy_' + name, { description, inputSchema: schemas[name],
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: name !== 'retailers' } }, async args => {
       const value = await request(name, args);
-      const data = catalogReply(name, args, Array.isArray(value) ? { retailers: value } : value);
-      return { content: [{ type: 'text', text: JSON.stringify(data) }], structuredContent: data };
+      return toolReply(name, args, value);
     });
   }
   return server;
