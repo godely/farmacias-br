@@ -31,7 +31,9 @@ export async function compareBaskets({items,retailers,zipcode}, sources, plan = 
     if(pending.length) { results.push({retailerId:retailer,status:'unresolved_items',pending});continue; }
     try {
       if(retailer==='drogasil') {
-        const data=await plan(lines.map(({sku,quantity})=>({query:sku,selectedSku:sku,quantity,includeGenerics:false})),{origin:{zipcode}});
+        // The barcode already fixes the SKU. A brand-only filter would discard
+        // an exact generic pack before its branch inventory was checked.
+        const data=await plan(lines.map(({sku,quantity})=>({query:sku,selectedSku:sku,quantity})),{origin:{zipcode}});
         results.push({retailerId:retailer,status:data.status,priceScope:'catalog_reference',plan:data});
       } else {
         const data=await retailerBasket({retailer,items:lines,zipcode},sources[retailer]);

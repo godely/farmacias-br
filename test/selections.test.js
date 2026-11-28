@@ -21,7 +21,9 @@ for(let mask=1;mask<8;mask++) {
       return {status:'matched'};
     }});
     const d=await compareBaskets({items:[{gtin,quantity:2}],retailers,zipcode},sources,async items=>{
-      quoted.push('drogasil');assert.equal(items[0].selectedSku,'1');return {status:'complete',plans:[]};
+      quoted.push('drogasil');
+      assert.deepEqual(items,[{query:'1',selectedSku:'1',quantity:2}]);
+      return {status:'complete',plans:[]};
     });
     assert.deepEqual(resolved,retailers); assert.deepEqual(quoted,retailers);
     assert.deepEqual(d.results.map(r=>r.retailerId),retailers);
