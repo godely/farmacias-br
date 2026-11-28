@@ -36,9 +36,32 @@ try {
     console.log(tool + ' passed');
   }
   const all = ['drogasil','paguemenos','drogariasaopaulo'];
+  const presentations = [
+    {typed:'rhibotriu sublingual', corrected:'rivotril sublingual', name:/rivotril/i,
+      strength:/0[.,]25\s*mg\b/i, pack:/30\s*comprimidos?/i, form:/sublingua(?:l|is)/i},
+    {typed:'zoupidenn em gotas, frasco de 20 mL', corrected:'zolpidem em gotas, frasco de 20 ml', ingredient:/\bzolpidem\b/i,
+      strength:/10\s*mg\s*\/\s*ml/i, pack:/20\s*ml\b/i, form:/gotas/i},
+  ];
   for (let mask=1; mask<8; mask++) {
     const retailers = all.filter((_, index) => mask & (1 << index));
     const scope = retailers.length === 1 ? {retailer:retailers[0]} : {retailers};
+    for (const example of presentations) {
+      const question = await call('pharmacy_search',{...scope,query:example.typed});
+      assert.equal(question.reply,'Você quis dizer '+example.corrected+'?');
+      assert.ok(question.results.every(group => !group.products.length));
+      const accepted = await call('pharmacy_search',question.confirmation.onYes);
+      assert.deepEqual(accepted.results.map(group => group.retailerId),retailers);
+      for (const group of accepted.results) {
+        assert.equal(group.status,'matches',group.retailerId+' '+example.corrected);
+        assert.ok(group.products.length);
+        for (const product of group.products) {
+          const label = [product.name,product.pack,product.dosageForm].filter(Boolean).join(' ');
+          if (example.ingredient) assert.ok(product.activeIngredients?.some(name => example.ingredient.test(name)),group.retailerId);
+          if (example.name) assert.match(product.name,example.name);
+          for (const pattern of [example.strength,example.pack,example.form]) assert.match(label,pattern);
+        }
+      }
+    }
     const misspelling = await call('pharmacy_search', {...scope, query:'dippirronnah'});
     assert.equal(misspelling.reply, 'Você quis dizer dipirona?');
     assert.ok(misspelling.results.every(group => !group.products.length));
@@ -81,5 +104,9 @@ try {
         product.activeIngredients?.some(name => /\bmorfina\b/i.test(name))), group.retailerId);
     }
     console.log(retailers.join(' + ') + ' passed');
+  }
+  for (const query of ['Rivotril sublingual 2 mg','Rivotril sublingual 0,25 mg 60 comprimidos','zolpidem em gotas, frasco de 30 mL']) {
+    const negative = await call('pharmacy_search',{retailers:all,query});
+    assert.deepEqual(negative.results.map(group => [group.status,group.products.length]),all.map(() => ['no_match',0]),query);
   }
 } finally { await client.close(); }

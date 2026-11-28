@@ -12,6 +12,7 @@ function catalogRow(hit) {
   return {
     retailer: 'Drogasil', sku: String(hit.sku), gtin: hit.eanCode ? String(hit.eanCode) : null,
     name: hit.name, brand: hit.brand, type: info.type, pack: info.pack, facts: hit.details ?? {},
+    dosageForm:hit.filters?.['Forma farmacêutica'],
     productUrl: validLink?.origin === 'https://www.drogasil.com.br' ? validLink.href : null,
     currentPrice: info.referencePriceBRL ?? null, listPrice: null, currency: 'BRL', inStock: null,
     priceScope: 'catalog_reference', observedAt: new Date().toISOString(),
@@ -60,7 +61,8 @@ const drogasil = {
   async searchCatalogPage(query, page, limit) {
     const result = await searchCatalogPage(query, {page:page - 1, hitsPerPage:limit});
     const products = result.hits.map(hit => ({
-      ...catalogRow(hit), activeIngredients:hit.activeIngredients, ingredientEvidence:hit.ingredientEvidence,
+      ...catalogRow(hit), activeIngredients:hit.activeIngredients ?? hit.details?.activeIngredients?.map(a=>a.description).filter(Boolean),
+      ingredientEvidence:hit.ingredientEvidence ?? (hit.details?.activeIngredients?.length ? {source:'retailer_field',field:'details.activeIngredients.description'} : undefined),
     }));
     return {products, pages:result.nbPages};
   },

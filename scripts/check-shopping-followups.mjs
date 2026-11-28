@@ -31,6 +31,20 @@ try {
   }
   const phrases = ['Patz GTS','Patz GTS em gotas, frasco de 20 mL'];
   const accepted = new Map();
+  for (const zipcode of origins) {
+    const result = await call('plan_purchase',{retailers:all,origin:{zipcode},items:[
+      {query:'Rivotril sublingual',brand:'Rivotril',includeGenerics:false},
+      {query:'zolpidem em gotas, frasco de 20 mL'},
+    ]});
+    assert.deepEqual(result.checkedRetailers,all);
+    for (const group of result.results) {
+      assert.deepEqual(group.tables.map(table=>table.status),['matches','matches'],group.retailerId);
+      if (group.retailerId === 'drogasil') continue;
+      const [tablets,drops] = group.tables.map(table=>table.choices);
+      assert.ok(tablets.length && tablets.every(p=>/^rivotril\b.*0[.,]25\s*mg.*30\s+comprimidos?\s+sublingua(?:l|is)/i.test(p.name)));
+      assert.ok(drops.length && drops.every(p=>/10\s*mg\/ml/i.test(p.name) && /20\s*ml/i.test(p.name) && /gotas/i.test(p.name)));
+    }
+  }
   for (const [i,query] of phrases.entries()) {
     const {coverage,results} = await call('plan_purchase',{
       retailers:all,origin:{zipcode:origins[i]},items:[{query,brand:'Patz GTS',includeGenerics:false}],
