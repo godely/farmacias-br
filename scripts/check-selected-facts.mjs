@@ -41,6 +41,12 @@ function verify(data, retailers) {
       assert.doesNotMatch(p.name,/\b(biolab|bicalutamida)\b/i);
       assert.ok([true,false,null].includes(p.prescription.required));
       assert.ok([true,false,null].includes(p.prescription.retained));
+      if (group.retailerId === 'paguemenos') {
+        assert.match(p.activeIngredients.join(' '),/cloridrato de tansulosina/i);
+        assert.equal(p.ingredientEvidence.source,'retailer_composition');
+        assert.equal(p.prescriptionEvidence.url,p.source);
+        assert.deepEqual([p.prescription.required,p.prescription.retained],[true,false]);
+      }
     }
   }
 }
@@ -48,6 +54,18 @@ function verify(data, retailers) {
 let failures = 0;
 try {
   await client.connect(transport);
+  for (const id of ids) {
+    const bin = fileURLToPath(new URL('../node_modules/.bin/'+id,import.meta.url));
+    const {stdout} = await run(process.execPath,[bin,'info',...queries],{timeout:180000,maxBuffer:4*1024*1024});
+    assert.match(stdout,/Via: Sublingual/i,id);
+    assert.match(stdout,/2[,.]5\s*mg\s*\/\s*ml/i,id);
+    assert.match(stdout,/Embalagem: [^\n]*20\s*ml/i,id);
+    assert.match(stdout,/Fabricante: Eurofarma/i,id);
+    assert.match(stdout,/Princípios ativos: [^\n]*tansulosina/i,id);
+    assert.match(stdout,/Precisa de receita\? [^\n]*A farmácia retém\? [^\n]*Qual receituário\?/i,id);
+    assert.doesNotMatch(stdout,/R\$|\bSKU\b|\bCEP\b/iu,id);
+    console.log('PASS standalone info',id);
+  }
   for (const mask of [1,2,4,3,5,6,7]) {
     const retailers = ids.filter((_,i)=>mask & (1<<i));
     for (const surface of ['cli','mcp']) {
