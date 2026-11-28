@@ -87,7 +87,8 @@ A resposta de preços inclui as modalidades que cada rede confirmou, taxas infor
 | Preço e atendimento local | Estoque por filial e preço de referência | Simulação por CEP ou coordenadas, SKU, vendedor e quantidade |
 | Cesta de vários produtos | Planejamento de paradas e percurso | Simulação conjunta, pontos de retirada comuns e subtotal dos produtos quando confirmado |
 | Diretório de lojas | Sim | Localizador por origem na Pague Menos e diretório nacional de filiais identificadas na Drogaria São Paulo |
-| Filial fisicamente mais próxima e ampliação para 25 km | Sim | Sem cobertura confirmada para essa operação |
+| Consulta na filial mais próxima | Quantidade informada na filial | Retirada para a quantidade pedida na filial mais próxima do diretório com distância conhecida |
+| Ampliação consentida para 25 km | Sim | Cobertura física sem confirmação |
 | Snapshot com paginação de leitura | Sim | Sim, com ofertas por SKU |
 
 A CLI, a biblioteca, o HTTP e o MCP compartilham o registro de operações. Os nomes MCP usam o prefixo `pharmacy_`. Para operações em outras redes, escolha o identificador da rede em `pharmacy_retailers`. Os dados de preço e estoque sempre pertencem à rede consultada. A equivalência é limitada aos genéricos que o catálogo de referência consegue identificar e cuja embalagem consta na rede selecionada. Uma classificação, concentração ou retenção ausente fica sem confirmação.
@@ -103,6 +104,8 @@ farmacias read_snapshot "$RUN_ID" --limit 5
 ```
 
 O teste de aceitação chama o MCP por stdio contra os catálogos reais, exercita os dois CEPs informados no momento do teste e descarta seu banco temporário de snapshots. Ele valida separadamente o escopo do preço, a quantidade consultada, o vendedor e a opção de retirada comum. Execute `node scripts/check-retailer-workflows.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"` com dois CEPs de teste para as cotações. O número de lojas e os preços variam.
+
+Para conferir a filial mais próxima nas duas redes parceiras, execute `node scripts/check-fixed-branch-pickup.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"`. A verificação cruza as respostas dos CLIs e do MCP com o diretório e a oferta de retirada publicados pela própria rede.
 
 Para verificar também os executáveis dos dois pacotes parceiros publicados no GitHub, execute `node scripts/check-sibling-clis.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"`. O teste cobre os oito comandos de referência, sugestões, código de barras, comparações locais, cestas, diretórios e exportação dos snapshots em JSON, CSV e XLSX.
 

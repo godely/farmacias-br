@@ -13,7 +13,7 @@ const usage = `Farmácias BR
   farmacias product --gtin EAN --retailer ID
   farmacias product <SKU> <SKU> --retailer ID
   farmacias stores --retailer ID [--cep CEP | --lat LAT --lon LON] [--page N --limit N]
-  farmacias compare <nome ou SKU> --retailer ID [--generics] [--cep CEP | --lat LAT --lon LON]
+  farmacias compare <nome ou SKU> --retailer ID [--generics] [--cep CEP | --lat LAT --lon LON] [--store nearest|ID]
   farmacias baskets GTIN[:quantidade]... --retailers ID,ID --cep CEP
   farmacias basket SKU[:quantidade[:vendedor]]... --retailer ID --cep CEP
   farmacias info <nome ou SKU>... --retailer ID [--brazil]
@@ -34,7 +34,7 @@ try {
 async function runOther() {
   const { positionals: [operation, ...terms], values } = parseArgs({ allowPositionals: true, options: {
     lat: { type: 'string' }, lon: { type: 'string' }, help: { type: 'boolean', short: 'h' }, retailer: { type: 'string', multiple:true }, retailers:{type:'string'}, brazil:{type:'boolean'}, cep: { type: 'string' },
-    gtin: {type:'string'}, 'max-items':{type:'string'}, offset:{type:'string'}, format:{type:'string'},
+    store:{type:'string'}, gtin: {type:'string'}, 'max-items':{type:'string'}, offset:{type:'string'}, format:{type:'string'},
     page: { type: 'string' }, limit: { type: 'string' }, quantity: { type: 'string' },
     generics: { type: 'boolean' }, json: { type: 'boolean' },
   } });
@@ -46,6 +46,7 @@ async function runOther() {
   else {
     if (values.format !== undefined) throw Error('--format é válido apenas para export_snapshot');
     const args = {};
+    if (values.store !== undefined) args.store=values.store;
     if (values.gtin !== undefined) args.gtin=values.gtin;
     if (values['max-items'] !== undefined) args.maxItems=Number(values['max-items']);
     if (values.offset !== undefined) args.offset=Number(values.offset);
