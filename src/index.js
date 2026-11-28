@@ -312,8 +312,10 @@ export async function storeDirectories(args, sources = providers) {
     let result;
     if (id === 'drogasil') {
       result = await provider.directory(coordinates ?? (zipcode ? {zipcode} : undefined));
+    } else if (!coordinates && !zipcode && provider.nationalDirectory) {
+      result = await provider.nationalDirectory();
     } else {
-      const scope = provider.directoryScope;
+      const scope = provider.nationalDirectory ? 'near_origin' : provider.directoryScope;
       const origin = coordinates ?? zipcode;
       if (scope === 'near_origin' && !origin) {
         return {retailerId:id,status:'requires_origin',scope,source:locatorPages[id],page,total:null,stores:[]};
