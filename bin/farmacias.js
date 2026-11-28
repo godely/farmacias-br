@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
+import {planArgs,planUsage} from './plan-args.js';
+import {catalogReply} from '../src/server.js';
 import { request } from '../src/index.js';
 
 const usage = `Farmácias BR
   farmacias retailers
-  farmacias search <nome> [--retailer ID] [--page N] [--limit N]
-  farmacias suggest <prefixo> [--retailer ID] [--limit N]
+  ${planUsage}
+  farmacias search <nome> [--retailer ID | --retailers ID,ID] [--page N] [--limit N]
+  farmacias suggest <prefixo> [--retailer ID | --retailers ID,ID] [--declined TERMO | --list-all] [--limit N]
   farmacias product <SKU> --retailer ID
   farmacias product --gtin EAN --retailer ID
   farmacias product <SKU> <SKU> --retailer ID
@@ -19,8 +22,16 @@ const usage = `Farmácias BR
   farmacias prices <nome, SKU ou GTIN> --cep CEP [--retailer ID] [--generics]
   Resultados em JSON. Os identificadores de loja estão em farmacias retailers.`;
 try {
+  if (process.argv[2]==='plan') {
+    const terms=process.argv.slice(3);
+    if (terms.includes('--help') || terms.includes('-h')) console.log(planUsage);
+    else console.log(JSON.stringify(await request('plan',planArgs(terms)),null,2));
+  } else await runOther();
+} catch (err) { console.error(err.message); process.exitCode = 1; }
+
+async function runOther() {
   const { positionals: [operation, ...terms], values } = parseArgs({ allowPositionals: true, options: {
-    lat: { type: 'string' }, lon: { type: 'string' }, help: { type: 'boolean', short: 'h' }, retailer: { type: 'string' }, cep: { type: 'string' },
+    lat: { type: 'string' }, lon: { type: 'string' }, help: { type: 'boolean', short: 'h' }, retailer: { type: 'string' }, retailers:{type:'string'}, declined:{type:'string'}, 'list-all':{type:'boolean'}, cep: { type: 'string' },
     gtin: {type:'string'}, 'max-items':{type:'string'}, offset:{type:'string'},
     page: { type: 'string' }, limit: { type: 'string' }, quantity: { type: 'string' },
     generics: { type: 'boolean' }, json: { type: 'boolean' },
@@ -41,6 +52,9 @@ try {
     else if (operation === 'product' && terms.length>1) args.skus=terms;
     else if (terms.length) args[['stock','product'].includes(operation) ? 'sku' : 'query'] = terms.join(' ');
     if (values.retailer !== undefined) args.retailer = values.retailer;
+    if (values.retailers !== undefined) args.retailers=values.retailers.split(',').map(id=>id.trim());
+    if (values.declined !== undefined) args.declinedTerm=values.declined;
+    if (values['list-all']!==undefined) args.listAll=values['list-all'];
     if (values.lat !== undefined || values.lon !== undefined) {
       args.coordinates = { latitude: values.lat?.trim() ? Number(values.lat) : NaN,
         longitude: values.lon?.trim() ? Number(values.lon) : NaN };
@@ -49,6 +63,7 @@ try {
     if (operation === 'compare') args.includeGenerics=values.generics??false;
     if (values.generics !== undefined) args.includeGenerics = values.generics;
     for (const key of ['limit','page','quantity']) if (values[key] !== undefined) args[key] = Number(values[key]);
-    console.log(JSON.stringify(await request(operation, args), null, 2));
+    const data=await request(operation,args);
+    console.log(JSON.stringify(['search','suggest'].includes(operation)?catalogReply(operation,args,data):data,null,2));
   }
-} catch (err) { console.error(err.message); process.exitCode = 1; }
+}

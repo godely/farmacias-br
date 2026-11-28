@@ -1,3 +1,5 @@
+import {inventoryConfig} from 'paguemenos-cli/branch-inventory';
+import {purchaseSchema,planSelectedBaskets} from './named-baskets.js';
 import { z } from 'zod';
 import { validGtin } from 'paguemenos-cli/vtex';
 import { retailerBasket, retailerComparison } from './retailer-shopping.js';
@@ -7,6 +9,7 @@ import { providers, retailPartners } from './providers.js';
 
 export const retailerIds = Object.keys(providers);
 const retailer = z.enum(retailerIds);
+const selection = z.array(retailer).min(1).max(3).refine(ids=>new Set(ids).size===ids.length,'Rede repetida');
 const partner = z.enum(['paguemenos','drogariasaopaulo']);
 const sku = z.string().trim().regex(/^\d{1,20}$/);
 const zipcode = z.string().trim().regex(/^\d{5}-?\d{3}$/).refine(value => !/^0+-?0+$/.test(value), 'CEP inválido');
@@ -16,13 +19,14 @@ const withLocation = shape => z.strictObject({ ...shape, ...location })
   .refine(value => Boolean(value.zipcode || value.coordinates), 'Informe o CEP ou as coordenadas');
 const query = z.string().trim().min(1).max(150);
 export const schemas = {
+  plan: purchaseSchema,
   retailers: z.strictObject({}),
-  search: z.strictObject({ query, retailer: retailer.optional(), page: z.number().int().min(1).max(100).default(1),
-    limit: z.number().int().min(1).max(50).default(10) }),
-  suggest: z.strictObject({ query, retailer: partner.default('paguemenos'),
+  search: z.strictObject({ query, retailer: retailer.optional(), retailers:selection.optional(), page: z.number().int().min(1).max(100).default(1),
+    limit: z.number().int().min(1).max(50).default(10) }).refine(v=>!v.retailer || !v.retailers,'Use retailer ou retailers'),
+  suggest: z.strictObject({ query, retailer: retailer.optional(), retailers: selection.optional(),
     declinedTerm: query.optional().describe('Previously proposed term the user declined. Return remaining suggestions.'),
     listAll: z.boolean().optional().describe('Use only when the user explicitly requests a list of terms.'),
-    limit: z.number().int().min(1).max(50).default(7) }),
+    limit: z.number().int().min(1).max(50).default(7) }).refine(v=>!v.retailer || !v.retailers,'Use retailer ou retailers'),
   product: z.strictObject({ retailer, sku:sku.optional(), skus:z.array(sku).min(1).max(100).optional(),
     gtin:z.string().refine(validGtin, 'GTIN inválido').optional() }).refine(
     args => [args.sku,args.skus,args.gtin].filter(Boolean).length === 1, 'Informe SKU, SKUs ou GTIN'),
@@ -44,10 +48,10 @@ const stockEvidence = { drogasil: 'branch_quantity', paguemenos: 'fulfillment_qu
 
 export function listRetailers() {
   return retailerIds.map(id => ({ id, retailer: providers[id].name, stockEvidence: stockEvidence[id],
-    capabilities:{batchSku:true, exactGtin:true, medicationInfo:'catalog', catalogSnapshots:true,
+    capabilities:{namedBasket:true, multiRetailerNamedBasket:true, batchSku:true, exactGtin:true, medicationInfo:'catalog', catalogSnapshots:true,
       stockOrigin:id === 'drogasil' ? ['cep','coordinates'] : ['cep'],
-      storeDirectory:typeof providers[id].stores === 'function', nearestBranch:id === 'drogasil', exactBranchQuantity:id === 'drogasil',
-      purchasePlan:id === 'drogasil', equivalentPresentations:id === 'drogasil' ? 'native' : 'verified_barcode_bridge',
+      storeDirectory:id === 'drogasil', nearestBranch:true, exactBranchQuantity:id === 'drogasil' || Boolean(inventoryConfig(id)),
+      purchasePlan:id === 'drogasil' || Boolean(inventoryConfig(id)), equivalentPresentations:id === 'drogasil' ? 'native' : 'verified_barcode_bridge',
       basket:id === 'drogasil' ? 'branch_plan' : 'joint_fulfillment_quote'},
     priceEvidence: stockEvidence[id] === 'fulfillment_quote' ? 'cep_quote_if_fulfillable' : 'online_or_reference' }));
 }
@@ -61,7 +65,15 @@ function summary(row, id) {
 }
 
 export async function suggestTerms(args, sources = providers) {
-  const { query, retailer, limit, declinedTerm } = schemas.suggest.parse(args);
+  const { query, retailer='paguemenos', retailers, limit, declinedTerm } = schemas.suggest.parse(args);
+  if (retailers) {
+    const results=await Promise.all(retailers.map(id=>suggestTerms({query,retailer:id,limit,declinedTerm},sources)));
+    const suggestions=new Map();
+    for (const group of results) for (const term of group.suggestions) {
+      if (!suggestions.has(termKey(term))) suggestions.set(termKey(term),term);
+    }
+    return {results,suggestions:[...suggestions.values()].slice(0,limit)};
+  }
   try {
     const source = sources[retailer];
     let suggestions = declinedTerm && source.alternatives
@@ -82,8 +94,8 @@ function termKey(value) {
 }
 
 export async function searchCatalog(args, sources = providers) {
-  const { query, retailer, page, limit } = schemas.search.parse(args);
-  const ids = retailer ? [retailer] : retailerIds;
+  const { query, retailer, retailers, page, limit } = schemas.search.parse(args);
+  const ids = retailers ?? (retailer ? [retailer] : retailerIds);
   const results = await Promise.all(ids.map(async id => {
     try {
       const rows = await sources[id].search(query, page, limit);
@@ -194,7 +206,7 @@ export async function medicationInfo(args, sources = providers) {
   }
   return catalogInfo(input,sources[input.retailer]);
 }
-export const operations = { retailers: listRetailers, search: searchCatalog, suggest: suggestTerms, product: getProduct,
+export const operations = { plan: planSelectedBaskets, retailers: listRetailers, search: searchCatalog, suggest: suggestTerms, product: getProduct,
   stock: getStock, prices: comparePrices, info: medicationInfo,
   stores: async ({retailer,page,limit}) => {
     const all = await providers[retailer].stores();
