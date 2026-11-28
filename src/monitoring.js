@@ -68,6 +68,8 @@ export function observations(operation, args, result) {
   const add = (row, query, retailer = base) => rows.push({ operation, retailer, shape: queryShape(query), outcome: outcome(row) });
   if (operation === 'get_products' && Array.isArray(result.products)) {
     for (const product of result.products) add({ status: product ? 'matches' : 'unknown_sku' }, '1');
+  } else if (operation === 'snapshot' && Array.isArray(result.runs)) {
+    for (const run of result.runs) add(run, undefined, retailerId(run.retailerId));
   } else if (result.tables?.length) {
     result.tables.forEach((row, i) => add(row, args.items?.[i]?.query));
   } else if (result.checkedRetailers?.length) {

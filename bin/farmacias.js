@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
 import { request } from '../src/index.js';
+import { runSnapshotCommand } from 'drogasil-cli/retailer-workflows';
 
 const usage = `Farmácias BR
   farmacias retailers
@@ -13,20 +14,26 @@ const usage = `Farmácias BR
   farmacias compare <nome ou SKU> --retailer ID [--generics]
   farmacias basket SKU[:quantidade[:vendedor]]... --retailer ID --cep CEP
   farmacias info <nome ou SKU>... --retailer ID
-  farmacias snapshot <consulta>... --retailer ID [--max-items N]
+  farmacias snapshot <consulta>... (--retailer ID | --retailers ID,ID) [--max-items N]
   farmacias read_snapshot <run-id> [--offset N --limit N]
+  farmacias export_snapshot <run-id> [--format json|csv|xlsx]
   farmacias stock <SKU> --retailer ID (--cep CEP | --lat LAT --lon LON) [--quantity N]
   farmacias prices <nome, SKU ou GTIN> --cep CEP [--retailer ID] [--generics]
   Resultados em JSON. Os identificadores de loja estão em farmacias retailers.`;
 try {
   const { positionals: [operation, ...terms], values } = parseArgs({ allowPositionals: true, options: {
     lat: { type: 'string' }, lon: { type: 'string' }, help: { type: 'boolean', short: 'h' }, retailer: { type: 'string' }, cep: { type: 'string' },
-    gtin: {type:'string'}, 'max-items':{type:'string'}, offset:{type:'string'},
+    gtin: {type:'string'}, 'max-items':{type:'string'}, offset:{type:'string'}, retailers:{type:'string'}, format:{type:'string'},
     page: { type: 'string' }, limit: { type: 'string' }, quantity: { type: 'string' },
     generics: { type: 'boolean' }, json: { type: 'boolean' },
   } });
   if (values.help || !operation) console.log(usage);
+  else if (operation === 'export_snapshot') {
+    if (Object.keys(values).some(key => key !== 'format')) throw Error('O export aceita apenas --format');
+    process.exitCode = await runSnapshotCommand(['export', ...terms], values);
+  }
   else {
+    if (values.format !== undefined) throw Error('--format é válido apenas para export_snapshot');
     const args = {};
     if (values.gtin !== undefined) args.gtin=values.gtin;
     if (values['max-items'] !== undefined) args.maxItems=Number(values['max-items']);
@@ -41,6 +48,7 @@ try {
     else if (operation === 'product' && terms.length>1) args.skus=terms;
     else if (terms.length) args[['stock','product'].includes(operation) ? 'sku' : 'query'] = terms.join(' ');
     if (values.retailer !== undefined) args.retailer = values.retailer;
+    if (values.retailers !== undefined) args.retailers = values.retailers.split(',').map(id => id.trim());
     if (values.lat !== undefined || values.lon !== undefined) {
       args.coordinates = { latitude: values.lat?.trim() ? Number(values.lat) : NaN,
         longitude: values.lon?.trim() ? Number(values.lon) : NaN };

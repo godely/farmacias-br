@@ -1,4 +1,5 @@
-import { collectSnapshot } from 'drogasil-cli';
+import { catalogSnapshot } from 'drogasil-cli/retailer-workflows';
+export { catalogSnapshot };
 
 function values(...fields) {
   return [...new Set(fields.flat().filter(v => typeof v === 'string' && v.trim()).map(v => v.trim()))];
@@ -47,23 +48,15 @@ export async function catalogInfo({retailer, queries, page, limit}, source) {
   return {retailerId:retailer, scope:'retailer_catalog', page, limitPerQuery:limit, results};
 }
 
-export async function catalogSnapshot({retailer, queries, maxItems}, source, {background = true} = {}) {
-  if (retailer === 'drogasil') return collectSnapshot(queries, {background, maxItems});
-  // One run belongs to one retailer. The snapshot store keys rows by its local SKU.
-  return collectSnapshot(queries, {background, maxItems}, {
-    async search(query, {page}) {
-      const rows = await source.search(query, page + 1, 50);
-      const products = new Map();
-      for (const row of rows) {
-        if (!products.has(row.sku)) products.set(row.sku, {sku:row.sku, name:row.name, offers:[]});
-        const {facts, ...offer} = row;
-        products.get(row.sku).offers.push(offer);
-      }
-      // VTEX paginates products and can emit several sellers per product. Read to an empty page.
-      return {hits:[...products.values()], nbPages:rows.length ? page + 2 : page + 1};
-    },
-    async read(hit, query) {
-      return {snapshot:{retailerId:retailer, searchQuery:query, ...hit}};
-    },
-  });
+export async function startSnapshots({retailer, retailers, queries, maxItems}, sources, collect = catalogSnapshot) {
+  const start = id => collect({retailer:id, queries, maxItems}, sources[id]);
+  if (retailer) return start(retailer);
+  const runs = await Promise.all(retailers.map(async id => {
+    try {
+      return {retailerId:id, ...await start(id)};
+    } catch {
+      return {retailerId:id, state:'failed', error:'snapshot_start_failed'};
+    }
+  }));
+  return {runs};
 }
