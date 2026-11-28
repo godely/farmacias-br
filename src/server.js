@@ -64,6 +64,9 @@ export function toolReply(name, args, value) {
       (name === 'compare' && (args.zipcode || args.coordinates))) {
     data = { ...data, orderEvidence: { orderPlacedByTool: false, reservation: 'unconfirmed', readyForPickup: 'unconfirmed' } };
   }
+  if (args.store && !data.nameChoice && !data.confirmation && (data.fixedStore || data.results?.some(r => r.fixedStore))) {
+    data = {...data, storeScope:'fixed_branch', nextAction:'answer_for_selected_branch'};
+  }
   const prompt = data.confirmation ?? (data.results?.length === 1 && data.results[0].confirmation);
   const content = [];
   let structuredContent = data;
@@ -123,9 +126,9 @@ export function shoppingReply(response) {
   const guidance = {};
   const outcomes = data.results ?? [data];
   if (outcomes.some(row => row.tables?.some(needsPresentationChoice))) guidance.presentationGuidance = presentationGuidance;
-  if (outcomes.some(row => row.coverage || row.planningScope === 'one_pack_alternatives')) guidance.priceGuidance = priceGuidance;
+  if (data.storeScope !== 'fixed_branch' && outcomes.some(row => row.coverage || row.planningScope === 'one_pack_alternatives')) guidance.priceGuidance = priceGuidance;
   if (outcomes.some(row => row.fixedStore)) {
-    guidance.fixedStoreGuidance = 'Use o nome e endereço em fixedStore.branch. Para offered, diga “Segundo o site, dá para retirar a quantidade pedida nessa loja”. Para not_offered, diga que o site não ofereceu retirada nessa loja. Para unconfirmed ou lookup_failed, informe que a retirada ficou sem confirmação. Se faltarem distâncias, limite a afirmação de proximidade às lojas com distância conhecida.';
+    guidance.fixedStoreGuidance = 'A consulta à filial escolhida terminou. Responda agora sobre essa filial e encerre o turno. Verifique outra loja apenas se a pessoa solicitar essa busca. Não faça outra chamada para procurar uma alternativa por iniciativa própria. Use o nome e endereço em fixedStore.branch. Para offered, diga “Segundo o site, dá para retirar a quantidade pedida nessa loja”. Para not_offered, diga que o site não ofereceu retirada nessa loja. Para unconfirmed ou lookup_failed, informe que a retirada ficou sem confirmação. Se faltarem distâncias, limite a afirmação de proximidade às lojas com distância conhecida.';
   }
   if (data.checkedRetailers && data.scope === 'whole_basket_per_retailer') {
     guidance.retailerGuidance = 'Responda pelas redes consultadas. Se outra rede tiver retirada, estoque ou resultado pendente, uma busca sem estoque na Drogasil sozinha não justifica ampliar o raio.';
