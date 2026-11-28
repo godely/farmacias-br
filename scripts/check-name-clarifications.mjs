@@ -16,6 +16,25 @@ async function call(name, args) {
 }
 try {
   await client.connect(transport);
+  for (const [tool, args] of [
+    ['search_products', {query:'predniso', page:1, limit:4}],
+    ['compare_products', {query:'predniso', includeGenerics:false}],
+    ['get_medication_info', {queries:['predniso','Rivotril']}],
+    ['pharmacy_info', {retailer:'drogasil', queries:['predniso','Rivotril']}],
+    ['pharmacy_compare', {retailer:'paguemenos', query:'predniso', includeGenerics:false}],
+  ]) {
+    const pending = await call(tool, args);
+    assert.equal(pending.reply, 'Você quis dizer prednisona ou prednisolona?');
+    assert.equal(pending.nextTool,tool);
+    if (tool === 'search_products') {
+      const result = await call(tool, pending.nameChoice.options[0].onSelect);
+      assert.ok(result.pages >= 1 && result.products.length);
+      assert.ok(result.products.every(p => p.activeIngredients.some(a => /\bprednisona\b/i.test(a))));
+      const drops = await call(tool, {query:'Dimorf em gotas'});
+      assert.ok(drops.products.length && drops.products.every(p => /solução|gotas/i.test(p.name) && !/comprimido/i.test(p.name)));
+    }
+    console.log(tool + ' passed');
+  }
   const all = ['drogasil','paguemenos','drogariasaopaulo'];
   for (let mask=1; mask<8; mask++) {
     const retailers = all.filter((_, index) => mask & (1 << index));

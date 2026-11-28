@@ -1,3 +1,4 @@
+import {clarifyLookup} from './name-choices.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -6,7 +7,7 @@ import { createRequire } from 'node:module';
 const { version } = createRequire(import.meta.url)('../package.json');
 import { registerDrogasilTools } from 'drogasil-cli/mcp-tools';
 import {purchaseDescription, purchaseSchema} from './named-baskets.js';
-import { retailPartners } from './providers.js';
+import { providers, retailPartners } from './providers.js';
 import { operations, request, schemas } from './index.js';
 
 const productNames = 'Accept a supplied SKU silently. Never ask for, mention, or display a SKU, its value, or a barcode in any user-facing reply, including errors and follow-ups. Identify products by name and presentation. Use the name and presentation for follow-up choices.';
@@ -67,7 +68,7 @@ export function toolReply(name, args, value) {
   const content = [];
   let structuredContent = data;
   if (data.nameChoice) {
-    const nextTool = name === 'plan_purchase' ? 'plan_purchase' : 'pharmacy_search';
+    const nextTool = data.nameChoice.tool ?? (name === 'plan_purchase' ? 'plan_purchase' : 'pharmacy_search');
     structuredContent = {...data, interaction:'awaiting_name_choice', reply:data.nameChoice.question, nextTool};
     content.push({type:'text',text:data.nameChoice.question + '\nAguarde a escolha de um nome. Use ' + nextTool +
       ' com onSelect da opção escolhida. Se a pessoa disser apenas “sim”, peça que escolha um dos nomes.'});
@@ -157,6 +158,21 @@ export function createServer(monitor = null) {
       if (name==='compare_pharmacy_prices') {
         return registry.registerTool(name,{...options,inputSchema:{...options.inputSchema,retailers:schemas.baskets.shape.retailers.optional()},
           description:descriptions.prices},async args=>toolReply('prices',args,await request('prices',args)));
+      }
+      if (['search_products','compare_products','get_medication_info'].includes(name)) {
+        const description = 'Drogasil only. Ask the exact returned confirmation or nameChoice question before showing products. ' + options.description;
+        return registry.registerTool(name, {...options, description}, async (args, extra) => {
+          const pending = await clarifyLookup(name, args, {retailer:'drogasil'});
+          if (pending) return toolReply(name, args, {...pending, ...(name === 'search_products' && {products:[], page:args.page})});
+          if (name !== 'search_products') return handler(args, extra);
+          const {products, pages} = await providers.drogasil.searchCatalogPage(args.query, args.page, args.limit);
+          return toolReply(name, args, {
+            status:products.length ? 'matches' : 'no_reference', page:args.page, pages,
+            ...(!products.length && {hint:'Peça outra grafia ou apresentação se quiser ampliar a consulta.'}),
+            products:products.map(({sku, name, brand, type, pack, currentPrice, activeIngredients, ingredientEvidence}) =>
+              ({sku, name, brand, type, pack, referencePriceBRL:currentPrice, activeIngredients, ingredientEvidence})),
+          });
+        });
       }
       const shared = name==='read_catalog_snapshot';
       const description = shared ? options.description : 'Drogasil only. ' + options.description;
