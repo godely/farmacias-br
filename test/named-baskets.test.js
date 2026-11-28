@@ -89,6 +89,54 @@ test('an unnamed chain searches all three; selecting or changing scope survives 
   }
 });
 
+
+test('partner checkout at the fixed directory branch survives MCP compaction and cannot substitute a farther store', async () => {
+  const groups = [['paguemenos','paguemenos00001_abcd'],['drogariasaopaulo','drogariaspcentro_2']];
+  const providers = Object.fromEntries(groups.map(([id,point])=>[id,{
+    product:async sku => [{sku,sellerId:'1',name:'Produto teste',currentPrice:6}],
+    stores:async () => [{id:'2',distanceKm:3},{id:'1',distanceKm:0.4,storeName:'Centro'}],
+    local:async (row, place, quantity) => {
+      assert.deepEqual(place,origin);
+      return {...row,localStatus:'available',requestedQuantity:quantity,methods:[{channel:'pickup-in-point',pickupPointId:point}]};
+    },
+  }]));
+  const response=await planSelectedBaskets({origin,store:'nearest',retailers:groups.map(([id])=>id),
+    items:[{query:'Meu produto',selectedSkus:{paguemenos:'8',drogariasaopaulo:'9'},quantity:2}]},{providers});
+  assert.deepEqual(response.completeRetailers,['paguemenos']);
+  assert.deepEqual(response.results.map(r=>r.fixedStore.branch.id),['1','1']);
+  assert.deepEqual(response.results.map(r=>r.tables[0].choices[0].pickupAtStore),['offered','not_offered']);
+  assert.deepEqual(response.results.map(r=>r.tables[0].choices[0].branchQuantity),[null,null]);
+  assert.equal(response.results[1].status,'pickup_not_offered');
+  assert.deepEqual(response.results[1].pickupPoints,[]);
+});
+
+
+test('when a basket splits across chains, each pickup belongs to the nearest branch of its own chain', async () => {
+  const ids=['paguemenos','drogariasaopaulo'];
+  const names=['Dimorf em gotas','Descongestionante Nasal Spray Ever Care'];
+  const providers = Object.fromEntries(ids.map((id,i) => {
+    const prefix=id==='paguemenos' ? n=>'paguemenos0000'+n+'_abcd' : n=>'drogariaspcentro_'+n;
+    function quote(offer,quantity) {
+      const n=offer.name===names[i] ? 1 : 2;
+      return {...offer,localStatus:'available',requestedQuantity:quantity,methods:[
+        {channel:'pickup-in-point',pickupPointId:prefix(n),branch:'Filial '+n,distanceKm:n}]};
+    }
+    return [id,{
+      product:async sku=>[{sku,sellerId:'1',name:names[Number(sku)-1],currentPrice:10+Number(sku)}],
+      local:async (row,place,q)=>quote(row,q),
+      basket:async lines=>lines.map(({offer,quantity})=>quote(offer,quantity)),
+      stores:async()=>[{id:'1',storeName:'Perto',distanceKm:1},{id:'2',storeName:'Longe',distanceKm:2}],
+    }];
+  }));
+  const items=names.map((query,i)=>({query,quantity:1,selectedSkus:Object.fromEntries(ids.map(id=>[id,String(i+1)]))}));
+  const result=await planSelectedBaskets({origin,retailers:ids,store:'nearest',items},{providers});
+  assert.deepEqual(result.completeRetailers,[]);
+  const [itinerary]=result.crossRetailerPlans.plans;
+  assert.equal(itinerary.stopCount,2); assert.equal(itinerary.totalBRL,23);
+  assert.deepEqual(itinerary.stops.map(s=>[s.retailerId,s.id,s.pickups[0].name]).sort(),
+    [['paguemenos','paguemenos00001_abcd',names[0]],['drogariasaopaulo','drogariaspcentro_1',names[1]]].sort());
+});
+
 test('shared pickup addresses retain each offer and its individual fee', () => {
   const base={localStatus:'available',requestedQuantity:1};
   const point={channel:'pickup-in-point',pickupPointId:'one',distanceKm:0.8,address:{street:'Centro'}};

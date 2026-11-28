@@ -34,7 +34,8 @@ export const schemas = {
     args => [args.sku,args.skus,args.gtin].filter(Boolean).length === 1, 'Informe SKU, SKUs ou GTIN'),
   stores: z.strictObject({retailer, ...location,
     page:z.number().int().positive().default(1), limit:z.number().int().min(1).max(100).default(20)}),
-  compare: z.strictObject({retailer:partner, query, includeGenerics:z.boolean(), ...location})
+  compare: z.strictObject({retailer:partner, query, includeGenerics:z.boolean(), store:z.union([z.literal('nearest'),sku]).optional(), ...location})
+    .refine(v=>!v.store || Boolean(v.zipcode || v.coordinates),'Informe a localização para escolher a filial')
     .refine(v=>!(v.zipcode && v.coordinates),'Informe apenas uma origem'),
   basket: z.strictObject({retailer:partner, zipcode, items:z.array(z.strictObject({sku,
     sellerId:z.string().trim().min(1).max(100).optional(), quantity:z.number().int().min(1).max(1000).default(1)})).min(1).max(20)}),
@@ -57,7 +58,7 @@ export function listRetailers() {
   return retailerIds.map(id => ({ id, retailer: providers[id].name, stockEvidence: stockEvidence[id],
     capabilities:{batchSku:true, exactGtin:true, medicationInfo:'catalog', catalogSnapshots:true,
       stockOrigin:['cep','coordinates'], directoryScope:providers[id].directoryScope??'national',
-      storeDirectory:typeof providers[id].stores === 'function', nearestBranch:id === 'drogasil', exactBranchQuantity:id === 'drogasil',
+      storeDirectory:typeof providers[id].stores === 'function', nearestBranch:true, fixedBranchEvidence:stockEvidence[id], exactBranchQuantity:id === 'drogasil',
       namedBasket:true, locationAwareComparison:true, purchasePlan:true, planningEvidence:id === 'drogasil' ? 'reported_branch_stock' : 'confirmed_pickup_points', equivalentPresentations:id === 'drogasil' ? 'native' : 'verified_barcode_bridge',
       basket:id === 'drogasil' ? 'branch_plan' : 'joint_fulfillment_quote'},
     priceEvidence: stockEvidence[id] === 'fulfillment_quote' ? 'cep_quote_if_fulfillable' : 'online_or_reference' }));

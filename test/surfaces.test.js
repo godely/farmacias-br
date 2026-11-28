@@ -147,13 +147,8 @@ test('CLI, HTTP, HTTP MCP and stdio MCP expose the same registry', async t => {
       assert.equal(tools.find(t=>t.name==='pharmacy_basket').annotations.readOnlyHint,true);
       assert.deepEqual((await client.callTool({name:'pharmacy_retailers',arguments:{}})).structuredContent.retailers,listRetailers());
       assert.ok(tools.find(t=>t.name==='plan_purchase').inputSchema.properties.retailer);
-      for(const retailer of ['paguemenos','drogariasaopaulo']) {
-        const noInventory=await client.callTool({name:'plan_purchase',arguments:{
-          retailer,items:[{query:'1',selectedSku:'1'}],origin:{zipcode:'01001000'},store:'nearest',
-        }});
-        assert.equal(noInventory.structuredContent.retailerId,retailer);
-        assert.equal(noInventory.structuredContent.status,'branch_inventory_unverified');
-      }
+      assert.ok(tools.find(t=>t.name==='pharmacy_compare').inputSchema.properties.store);
+      assert.ok((await client.callTool({name:'pharmacy_compare',arguments:{retailer:'paguemenos',query:'produto',store:'nearest',includeGenerics:false}})).isError);
       assert.ok((await client.callTool({name:'pharmacy_stock',arguments:{sku:'1'}})).isError);
     } finally {await client.close()}
   }

@@ -1,6 +1,7 @@
 import {z} from 'zod';
 import {planPurchase, resolveMedication} from 'drogasil-cli';
 import {quoteChosenOffers,quoteShoppingList,shoppingSource} from 'paguemenos-cli/plan';
+import {fixedStoreSource} from 'paguemenos-cli/compare';
 import {crossRetailerPlans} from 'paguemenos-cli/pickup-plans';
 import {providers} from './providers.js';
 import {nameChoices, choiceFollowup} from './name-choices.js';
@@ -60,7 +61,7 @@ function localItems(items,id) {
 
 async function planAtRetailer(id,items,{origin,store,expandSearch,includeBranchChoices,fixedOffers},source=providers[id]) {
   if (id==='drogasil') return planPurchase(items,{origin,store,expandSearch,includeBranchChoices,confirmBrands:true});
-  if (store || expandSearch) return {
+  if (expandSearch) return {
     retailerId:id, status:'branch_inventory_unverified',
     reason:'A rede confirma retirada para a quantidade pedida. O estoque físico de cada filial é desconhecido.',
   };
@@ -86,18 +87,25 @@ export function compactPartnerAlternatives(result) {
     });
     return {sku, gtin, sellerId, seller, name, type, currentPrice, listPrice, currency,
       productUrl, priceScope, observedAt, localStatus, requestedQuantity, matchBasis,
+      ...(product.pickupAtStore && {pickupAtStore:product.pickupAtStore}),
       branchQuantity:null, closestPickupPointId:product.closestQuotedPickup?.pickupPointId ?? null, methods};
   });
   return {...summary, tables:tables.map(table => ({...table, choices})), pickupPoints:[...pickupPoints.values()]};
 }
 
-export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:customPlan, clarify=nameChoices}={}) {
+export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:customPlan, clarify=nameChoices, providers:retailersById=providers}={}) {
   const {items,retailer}=args;
   const ids=selectedRetailers(args);
   const sources = new Map();
-  const plan = customPlan ?? ((id,lines,options) => {
-    if (!sources.has(id)) sources.set(id,shoppingSource(providers[id]));
-    return planAtRetailer(id,lines,options,sources.get(id));
+  const storeEvidence = (id, result) => sources.get(id)?.withStoreEvidence?.(result) ?? result;
+  const plan = customPlan ?? (async (id,lines,options) => {
+    if (!sources.has(id)) {
+      const source = shoppingSource(retailersById[id]);
+      sources.set(id, options.store && id !== 'drogasil'
+        ? fixedStoreSource(id, source, options.origin.zipcode ?? options.origin, options.store) : source);
+    }
+    const result = await planAtRetailer(id,lines,options,sources.get(id));
+    return storeEvidence(id,result);
   });
   if (ids.length > 1 && items.some(line => line.selectedSku ||
       (/^\d+$/.test(line.query) && ids.some(id => !line.selectedSkus?.[id])))) {
@@ -112,14 +120,14 @@ export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:
     const resolution = choiceFollowup(choices, 'plan_purchase', followup, {...scope, query:line.query});
     return {status:'needs_name_confirmation', label:tableLabel(index), ...resolution, results:[]};
   }
-  const planPickups = items.length > 1 && !args.store && !args.expandSearch;
+  const planPickups = items.length > 1 && !args.expandSearch;
   const quoteSubset = (id,indices,chosen) => chosen ? plan(id,chosen,{...args,fixedOffers:true}) :
     plan(id,localItems(indices.map(i=>items[i]),id),args);
   if (retailer) {
     const result = await plan(retailer,localItems(items,retailer),args);
     if (retailer === 'drogasil' || !planPickups || result.pendingBrands) return result;
     const pickupPlans = await crossRetailerPlans([{...result,retailerId:retailer}],items,quoteSubset);
-    return {...result,pickupPlans};
+    return storeEvidence(retailer,{...result,pickupPlans});
   }
 
   const pendingBrands=[];
@@ -142,11 +150,11 @@ export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:
   }));
   const comparison = planPickups && (ids.length > 1 || ids[0] !== 'drogasil')
     ? await crossRetailerPlans(results,items,quoteSubset) : undefined;
-  const summaries = results.map(({branchChoices,...result}) => {
+  const summaries = await Promise.all(results.map(async ({branchChoices,...result}) => {
     const pickupPlans = result.retailerId === 'drogasil' ? undefined :
       (ids.length === 1 ? comparison : comparison?.byRetailer[result.retailerId]);
-    return compactPartnerAlternatives({...result,...(pickupPlans && {pickupPlans})});
-  });
+    return compactPartnerAlternatives(await storeEvidence(result.retailerId,{...result,...(pickupPlans && {pickupPlans})}));
+  }));
   const completeRetailers=summaries.filter(r=>r.status==='complete' || r.status==='fulfillable' ||
     r.pickupPlans?.status==='complete').map(r=>r.retailerId);
   const {byRetailer,...overall} = comparison ?? {};
@@ -158,6 +166,7 @@ export const purchaseDescription =
   'For local shopping and stock use plan_purchase once for the entire named basket after generic preferences are settled. ' +
   'No pharmacy named or “qualquer uma” means all three: omit retailer and retailers. Use retailer only for a chain the shopper actually chose, and retailers for a chosen group. ' +
   'Keep that scope through clarification of pack size, dose, and generic preferences. A catalog used for clarification does not set the shopping scope. ' +
+  'For “na minha loja mais próxima” set store to nearest and check one directory branch per selected chain. Use fixedStore for the branch identity and pickupAtStore for the outcome. A missing pickup offer at that store does not establish zero units. For the nearest place offering pickup omit store. ' +
   'Preserve one item per requested medication, with brand choices and quantity. Retain local product selections by retailer in selectedSkus. ' +
   'For a multi-chain basket lead with a complete crossRetailerPlans plan, naming each store and what to pick up there. Empty completeRetailers only concerns each chain alone. When two plans differ, show the savings and extra stops. Compare verified product subtotals. '+
   'When a basket is incomplete, identify the item and each chain’s lookup outcome. A catalog miss leaves local stock unknown. For a multi-chain result use every retailer result including failures. For one partner chain lead with pickupPlans for its verified stores. Compare fewest stores and lowest product subtotal. Report searchLimited or failed quotes as partial coverage. Drogasil reports branch quantities. Partner checkout confirms pickup for the requested packs.';
