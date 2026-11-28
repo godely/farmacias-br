@@ -16,6 +16,11 @@ const cases = [
   {query:'ibuprofeno 600 mg 20 comprimidos', scope:{}, flags:[], expected:retailers},
   {query:'paracetamol 750 mg 20 comprimidos', scope:{retailer:'drogasil'}, flags:['--retailer','drogasil'], expected:['drogasil']},
   {query:'paracetamol 750 mg 20 comprimidos', scope:{retailers:retailers.slice(1)}, flags:['--retailers',retailers.slice(1).join(',')], expected:retailers.slice(1)},
+  ...retailers.slice(1).flatMap(retailer => [
+    {query:'ibuprofeno 600 mg 20 comprimidos',scope:{retailer},flags:['--retailer',retailer],expected:[retailer]},
+    {query:'ibuprofeno 600 mg 20 comprimidos',scope:{retailers:['drogasil',retailer]},
+      flags:['--retailers','drogasil,'+retailer],expected:['drogasil',retailer]},
+  ]),
 ];
 
 function verify(data, expected, singleton, surface) {
@@ -34,7 +39,10 @@ function verify(data, expected, singleton, surface) {
       assert.ok(row.tables[0].choices.length);
       assert.ok(row.tables[0].choices.every(p=>p.branchQuantity===null));
       for (const product of row.tables[0].choices) for (const method of product.methods) {
-        if (method.pickupPointId) assert.ok(row.pickupPoints.some(p=>p.pickupPointId===method.pickupPointId));
+        if (method.pickupPointId) {
+          const point = row.pickupPoints?.find(p=>p.pickupPointId===method.pickupPointId) ?? (singleton && method);
+          assert.ok(point?.address || point?.branch, 'Missing pickup point identity for '+row.retailerId);
+        }
       }
     }
   }
