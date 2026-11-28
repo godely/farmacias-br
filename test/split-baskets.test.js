@@ -96,3 +96,13 @@ test('a farther branch wins when the two-stop round trip is shorter',async()=>{
   assert.ok(plan.roundTripKm>2.65 && plan.roundTripKm<2.68);
   assert.equal(plan.routeExactAmongChosenStops,true);
 });
+
+test('the first MCP text block gives the complete trip before bulky retailer details',async()=>{
+  const {shoppingReply,toolReply}=await import('../src/server.js');
+  const r=await report(items,{drogasil:lines=>drug({A:10},lines),paguemenos:lines=>partner({B:[5,'b']},lines),
+    drogariasaopaulo:lines=>partner({C:[4,'c']},lines)});
+  const reply=shoppingReply(toolReply('plan_purchase',{},r));
+  assert.equal(reply.structuredContent.crossRetailerPlans.plans[0].stopCount,3);
+  assert.match(reply.content[0].text,/Cesta completa.*\n.*3 lojas/);
+  for(const name of ['Drogasil','Pague Menos','Drogaria São Paulo']) assert.ok(reply.content[0].text.includes(name));
+});
