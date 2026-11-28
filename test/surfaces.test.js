@@ -154,6 +154,18 @@ test('CLI, HTTP, HTTP MCP and stdio MCP expose the same registry', async t => {
   }
 });
 
+
+test('a completed fixed-store checkout directs the client to answer without widening the search',()=>{
+  const args={retailer:'paguemenos',store:'nearest'};
+  const value={status:'pickup_not_offered',planningScope:'one_pack_alternatives',fixedStore:{branch:{id:'1'}},tables:[]};
+  const result=shoppingReply(toolReply('plan_purchase',args,value));
+  assert.equal(result.structuredContent.nextAction,'answer_for_selected_branch');
+  assert.equal(result.structuredContent.storeScope,'fixed_branch');
+  assert.equal(result.structuredContent.priceGuidance,undefined);
+  assert.match(result.content[0].text,/encerre o turno/);
+  assert.equal(toolReply('plan_purchase',{},value).structuredContent.nextAction,undefined);
+});
+
 test('coordinate-only origins reach the point-capable retailer and request a CEP for delivery quotes', async () => {
   const coordinates={latitude:-23.5,longitude:-46.6};
   const row={sku:'42',name:'Example'};
