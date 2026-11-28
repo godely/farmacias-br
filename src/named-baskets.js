@@ -97,7 +97,7 @@ export function compactPartnerAlternatives(result) {
 
 // A checkout quote can verify pickup, but only explicit branch counts prove
 // that the entire selected local search returned zero.
-function basketCoverage(results, fixed) {
+export function basketCoverage(results, fixed) {
   if (results.length === 1 && results[0].coverage) return results[0].coverage;
   const known = results.every(r => Number.isInteger(r.coverage?.checkedStores) && r.coverage.checkedStores > 0);
   const stockUnknown = !known || results.some(r => r.coverage.stockUnknown !== false || r.stockIncomplete);
