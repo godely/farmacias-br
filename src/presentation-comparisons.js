@@ -2,26 +2,13 @@ import {samePack} from 'drogasil-cli';
 import {validGtin} from 'paguemenos-cli/vtex';
 import {compareOffers} from 'paguemenos-cli/compare';
 import {providers} from './providers.js';
-import {basketCoverage} from './named-baskets.js';
+import {basketCoverage, expandedBranches} from './stock-coverage.js';
 
 function closestBranch(results) {
   const branches = results.map(group => ({retailerId:group.retailerId, ...group.fixedStore?.branch}));
   if (!branches.every(branch => Number.isFinite(branch.distanceKm))) return {status:'unconfirmed', branches:[]};
   const distance = Math.min(...branches.map(branch => branch.distanceKm));
   return {status:'identified', branches:branches.filter(branch => branch.distanceKm === distance)};
-}
-
-function expandedBranches(results) {
-  const windows = results.map(group=>group.expandedSearch ?? group.purchase?.expandedSearch);
-  if (!windows.some(Boolean)) return null;
-  const stores = windows.flatMap((window,index) =>
-    (window?.stores ?? []).map(store=>({...store,retailerId:results[index].retailerId})));
-  const inRange = stores.filter(store=>Number.isFinite(store.distanceKm) && store.distanceKm >= 0 && store.distanceKm <= 25);
-  inRange.sort((a,b)=>a.distanceKm-b.distanceKm || a.retailerId.localeCompare(b.retailerId) || String(a.id).localeCompare(String(b.id)));
-  const partial = inRange.length !== stores.length || results.some((group,index)=>
-    windows[index] ? windows[index].partial : group.status==='source_failed' ||
-      !(group.coverage?.allZero && group.coverage.radiusKm >= 25));
-  return {radiusKm:25, partial, stores:inRange.slice(0,10), advice:'Ligue para a filial antes de sair para confirmar o estoque.'};
 }
 
 async function exactReference(owner, query, sources) {
@@ -95,12 +82,13 @@ export async function compareSelection(args, {sources=providers, comparePartner=
     coverage:group.coverage ?? group.purchase?.coverage, stockIncomplete:group.stockIncomplete ?? group.purchase?.stockIncomplete,
   })), options.store);
   let coverage = location ? coverageFor(results) : null;
-  if (multi && options.expandSearch && coverage?.canExpand) {
+  const expandEligible = multi && options.expandSearch && coverage?.canExpand;
+  if (expandEligible) {
     results = await Promise.all(results.map(group => (group.coverage ?? group.purchase?.coverage)?.canExpand
       ? lookup(group.retailerId, true) : group));
     coverage = coverageFor(results);
   }
-  const expandedSearch = expandedBranches(results);
+  const expandedSearch = expandedBranches(results,expandEligible);
   if (coverage && expandedSearch) {
     coverage = {...coverage, canExpand:false};
   }

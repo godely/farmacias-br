@@ -53,6 +53,48 @@ test('confirmed zeros across two directories expand only the chain that has fart
   assert.equal(wider.coverage.canExpand,false);
 });
 
+test('an accepted expansion that fails in every eligible chain reports incomplete coverage',async()=>{
+  const args={retailers:chains,origin,items:[items[0]],expandSearch:true};
+  const plan=async(id,lines,opts)=>{
+    if (opts.expandSearch) throw new Error('unavailable');
+    return {status:'unfilled',coverage:{allZero:true,stockUnknown:false,checkedStores:3,radiusKm:2,canExpand:true}};
+  };
+  const result=await planSelectedBaskets(args,{plan});
+  assert.equal(result.expandedSearch.partial,true);
+  assert.equal(result.expandedSearch.checkedStores,null);
+  assert.deepEqual(result.expandedSearch.stores,[]);
+  assert.ok(result.results.every(group=>group.status==='source_failed'));
+  assert.equal(result.coverage.canExpand,false);
+});
+
+for(let mask=1;mask<8;mask++) {
+  const selection=chains.filter((_,i)=>mask&(1<<i));
+  test('expanded basket lists at most ten nearest stocked branches across '+selection.join(', '),async()=>{
+    const args={retailers:selection,origin,items:[items[0]]};
+    const sampleStores = id => Array.from({length:9},(_,i)=>({
+      id:String(i),name:id+' '+i,phone:'contato publicado',stocks:[{sku:'item',quantity:2}],
+      distanceKm:i*2+chains.indexOf(id)/3,
+    }));
+    const plan=async(id,lines,options)=>({
+      status:'unfilled',coverage:{allZero:true,stockUnknown:false,checkedStores:3,radiusKm:2,canExpand:!options.expandSearch},
+      ...(options.expandSearch && {expandedSearch:{radiusKm:25,checkedStores:11,partial:false,stores:sampleStores(id)}}),
+    });
+    const initial=await planSelectedBaskets(args,{plan});
+    assert.equal(initial.coverage.canExpand,true);
+    assert.equal(initial.expandedSearch,undefined);
+    const accepted=await planSelectedBaskets({...args,expandSearch:true},{plan});
+    assert.equal(accepted.coverage.canExpand,false);
+    const wider=accepted.expandedSearch;
+    assert.ok(wider,'accepted basket must return one combined list');
+    const ranked=selection.flatMap(id=>sampleStores(id).map(store=>({...store,retailerId:id})))
+      .sort((a,b)=>a.distanceKm-b.distanceKm).slice(0,10);
+    assert.deepEqual(wider.stores,ranked);
+    assert.equal(wider.checkedStores,11*selection.length);
+    assert.equal(wider.partial,false);
+    assert.match(wider.advice,/ligue/i);
+  });
+}
+
 for(let mask=1;mask<8;mask++) {
   const retailers=chains.filter((_,i)=>mask&(1<<i));
   test('a single named basket preserves the selected chains and each full order: '+retailers.join(', '),async()=>{

@@ -4,6 +4,8 @@ import {quoteChosenOffers,quoteShoppingList,shoppingSource} from 'paguemenos-cli
 import {fixedStoreSource} from 'paguemenos-cli/compare';
 import {crossRetailerPlans} from 'paguemenos-cli/pickup-plans';
 import {providers} from './providers.js';
+import {basketCoverage, expandedBranches} from './stock-coverage.js';
+export {basketCoverage} from './stock-coverage.js';
 import {nameChoices, choiceFollowup} from './name-choices.js';
 
 const allRetailers = Object.keys(providers);
@@ -95,19 +97,6 @@ export function compactPartnerAlternatives(result) {
   return {...summary, tables:tables.map(table => ({...table, choices})), pickupPoints:[...pickupPoints.values()]};
 }
 
-// A checkout quote can verify pickup, but only explicit branch counts prove
-// that the entire selected local search returned zero.
-export function basketCoverage(results, fixed) {
-  if (results.length === 1 && results[0].coverage) return results[0].coverage;
-  const known = results.every(r => Number.isInteger(r.coverage?.checkedStores) && r.coverage.checkedStores > 0);
-  const stockUnknown = !known || results.some(r => r.coverage.stockUnknown !== false || r.stockIncomplete);
-  const allZero = !stockUnknown && results.every(r => r.coverage.allZero === true);
-  return {checkedStores:known ? results.reduce((sum,r) => sum + r.coverage.checkedStores,0) : null,
-    radiusKm:known && results.every(r => Number.isFinite(r.coverage.radiusKm))
-      ? Math.min(...results.map(r => r.coverage.radiusKm)) : null,
-    allZero, stockUnknown, canExpand:!fixed && allZero && results.some(r => r.coverage.canExpand === true)};
-}
-
 export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:customPlan, clarify=nameChoices, providers:retailersById=providers}={}) {
   const {items,retailer}=args;
   const ids=selectedRetailers(args);
@@ -167,10 +156,13 @@ export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:
   }
   let results = await Promise.all(ids.map(id => lookup(id, localArgs)));
   let coverage = basketCoverage(results, args.store);
-  if (args.expandSearch && !localArgs.expandSearch && coverage.canExpand) {
+  const expandEligible = args.expandSearch && !localArgs.expandSearch && coverage.canExpand;
+  if (expandEligible) {
     results = await Promise.all(results.map(result => result.coverage?.canExpand ? lookup(result.retailerId,args) : result));
     coverage = {...basketCoverage(results, args.store), canExpand:false};
   }
+  const expandedSearch = args.expandSearch ? expandedBranches(results, expandEligible) : null;
+  if (expandedSearch) coverage = {...coverage,canExpand:false};
   const comparison = planPickups && (ids.length > 1 || ids[0] !== 'drogasil')
     ? await crossRetailerPlans(results,items,quoteSubset) : undefined;
   const summaries = await Promise.all(results.map(async ({branchChoices,...result}) => {
@@ -185,7 +177,7 @@ export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:
     r.checkout?.status==='fulfillable' || r.pickupPlans?.status==='complete').map(r=>r.retailerId);
   const {byRetailer,...overall} = comparison ?? {};
   return {scope:'whole_basket_per_retailer', checkedRetailers:ids, completeRetailers, coverage,
-    results:summaries, ...(ids.length > 1 && comparison && {crossRetailerPlans:overall})};
+    results:summaries, ...(expandedSearch && {expandedSearch}), ...(ids.length > 1 && comparison && {crossRetailerPlans:overall})};
 }
 
 export const purchaseDescription =
