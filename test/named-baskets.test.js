@@ -9,6 +9,30 @@ const chains=['drogasil','paguemenos','drogariasaopaulo'];
 const origin={latitude:-13,longitude:-44};
 const items=[{query:'Marca A',includeGenerics:false,quantity:2},{query:'Ingrediente B',genericOnly:true}];
 
+test('a zero-stock chain cannot trigger wider searches when another chain offers pickup or lacks inventory', async () => {
+  const zero={checkedStores:30,radiusKm:4,stockUnknown:false,allZero:true,canExpand:true};
+  for (const status of ['fulfillable','pickup_not_offered','source_failed']) {
+    for (const expandSearch of [false,true]) {
+      const calls=[];
+      const result=await planSelectedBaskets({retailers:['drogasil','paguemenos'],origin,items:[items[0]],expandSearch},{
+        plan:async(id,lines,opts)=>{
+          calls.push([id,Boolean(opts.expandSearch)]);
+          return id==='drogasil'?{status:'unfilled',coverage:zero}:{status};
+        },
+      });
+      assert.deepEqual(calls,[['drogasil',false],['paguemenos',false]]);
+      assert.equal(result.coverage.canExpand,false);
+      assert.equal(result.coverage.allZero,false);
+      assert.equal(result.results[0].coverage.canExpand,false);
+      assert.equal(result.results[0].coverage.checkedStores,30);
+      assert.equal(result.results[1].status,status);
+    }
+  }
+  const single=await planSelectedBaskets({retailers:['drogasil'],origin,items:[items[0]]},{
+    plan:async()=>({status:'unfilled',coverage:zero})});
+  assert.deepEqual(single.coverage,zero);
+});
+
 for(let mask=1;mask<8;mask++) {
   const retailers=chains.filter((_,i)=>mask&(1<<i));
   test('a single named basket preserves the selected chains and each full order: '+retailers.join(', '),async()=>{

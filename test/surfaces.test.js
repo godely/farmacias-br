@@ -96,7 +96,7 @@ test('MCP exposes one question, routes yes to the named retailer and excludes th
     ranking = [term+' gotas', term.toUpperCase(), query, term+' 10mg'];
     const no = group.confirmation.onNo;
     assert.deepEqual(catalogReply('suggest', no, await suggestTerms(no,sources)), {
-      retailerId:'paguemenos', status:'suggestions', suggestions:[term+' gotas',term+' 10mg'] });
+      retailerId:'paguemenos', status:'no_suggestions', suggestions:[] });
     ranking = [term];
     assert.equal((await suggestTerms(no, sources)).status, 'no_suggestions');
     ranking = [];
@@ -225,8 +225,21 @@ test('both partner chains keep the retailer on yes and ask it for alternatives o
     assert.equal(group.confirmation.question,'Você quis dizer morfina?');
     assert.deepEqual(group.confirmation.onYes,{query:'morfina',retailer});
     const no=await suggestTerms(group.confirmation.onNo,{[retailer]:source});
-    assert.deepEqual(no,{status:'suggestions',retailerId:retailer,suggestions:['morfina 10 mg']});
+    assert.deepEqual(no,{status:'no_suggestions',retailerId:retailer,suggestions:[]});
+    const reply=toolReply('suggest',group.confirmation.onNo,no);
+    assert.equal(reply.structuredContent.interaction,'awaiting_spelling');
+    assert.match(reply.content[0].text,/outra parte do nome/);
   }
+});
+
+test('a partial alternatives lookup names only terms actually returned by the selected chains',async()=>{
+  const args={query:'loratadnia',declinedTerm:'loratadina',retailers:['paguemenos','drogariasaopaulo']};
+  const data=await suggestTerms(args,{paguemenos:{suggest:async()=>['loratadina xarope','desloratadina']},
+    drogariasaopaulo:{suggest:async()=>{throw Error('offline');}}});
+  assert.deepEqual(data.suggestions,['desloratadina']);
+  const reply=toolReply('suggest',args,data).structuredContent;
+  assert.equal(reply.interaction,'awaiting_alternative_name');
+  assert.equal(reply.reply,'Parte das redes não respondeu. Encontrei desloratadina. Qual desses nomes aparece na caixa?');
 });
 
 test('directory outage, unknown item and insufficient local evidence have separate stock outcomes', async()=>{
