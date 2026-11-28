@@ -33,6 +33,9 @@ for (const [i, retailer] of ['drogasil','paguemenos','drogariasaopaulo'].entries
     }
   }
   assert.equal((await invoke(['search','morfi'],3)).message,'Você quis dizer morfina?');
+  const severe = await invoke(['search','rhibotriu sublingual'],3);
+  assert.equal(severe.message, 'Você quis dizer rivotril sublingual?');
+  assert.deepEqual(severe.data.hits ?? severe.data, []);
   for (const name of ['prednisona','prednisolona','morfina']) {
     const {data} = await invoke(['search',name,'--limit','4']);
     const rows = data.hits ?? data;
@@ -40,5 +43,5 @@ for (const [i, retailer] of ['drogasil','paguemenos','drogariasaopaulo'].entries
     for (const row of rows) assert.ok(row.activeIngredients?.some(a =>
       a.toLowerCase().split(/[^\p{L}]+/u).includes(name)), retailer + ': ' + row.name);
   }
-  console.log(retailer + ': 9 checks passed');
+  console.log(retailer + ': 10 checks passed');
 }

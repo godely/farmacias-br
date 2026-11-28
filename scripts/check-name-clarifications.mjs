@@ -39,6 +39,18 @@ try {
   for (let mask=1; mask<8; mask++) {
     const retailers = all.filter((_, index) => mask & (1 << index));
     const scope = retailers.length === 1 ? {retailer:retailers[0]} : {retailers};
+    const misspelling = await call('pharmacy_search', {...scope, query:'dippirronnah'});
+    assert.equal(misspelling.reply, 'Você quis dizer dipirona?');
+    assert.ok(misspelling.results.every(group => !group.products.length));
+    const alternatives = await call('pharmacy_suggest', misspelling.confirmation.onNo);
+    assert.ok(!['partial','source_failed'].includes(alternatives.status));
+    assert.ok(alternatives.suggestions.every(name => !/\bdipirona\b/i.test(name)));
+    const confirmed = await call('pharmacy_search', misspelling.confirmation.onYes);
+    assert.deepEqual(confirmed.results.map(group => group.retailerId), retailers);
+    for (const group of confirmed.results) {
+      assert.ok(group.products.length && group.products.every(product =>
+        product.activeIngredients?.some(name => /\bdipirona\b/i.test(name))), group.retailerId);
+    }
     for (const tool of ['pharmacy_search', 'pharmacy_suggest']) {
       const reply = await call(tool, {...scope, query:'dexa', limit:7});
       assert.equal(reply.interaction, 'awaiting_name_choice');
