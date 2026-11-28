@@ -165,7 +165,8 @@ function itineraryText(result) {
   }
   for (const line of partial?.unfilled ?? []) text.push('Pendente: '+describeUnfilled(line));
   if (itinerary.comparison) text.push(describePlanDifference(itinerary.comparison));
-  if (result.searchLimited || result.lookupFailures?.length) text.push('Comparação parcial entre as opções verificadas.');
+  if (result.searchLimited) text.push('Outras combinações ficaram sem avaliação. Estes são os melhores roteiros entre os que conferi.');
+  if (result.lookupFailures?.length) text.push('Algumas consultas de retirada ficaram sem confirmação.');
   return text.join('\n');
 }
 
