@@ -9,7 +9,8 @@ import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/st
 
 const run = promisify(execFile);
 const queries = ['Dimorf em gotas', 'Patz GTS em gotas, frasco de 20 mL', 'Rivotril em gotas',
-  'Dimorf em gotas, frasco de 30 mL', 'Patz GTS em gotas 30 mg/mL'];
+  'Dimorf em gotas, frasco de 30 mL', 'Patz GTS em gotas 30 mg/mL','Rivotril sublingual',
+  'Rivotril sublingual 2 mg','Rivotril sublingual 0,25 mg 60 comprimidos'];
 const packages = ['drogasil','paguemenos','drogariasaopaulo'];
 const client = new Client({name:'drop-presentation-facts', version:'1'});
 const endpoint = process.env.FARMACIAS_TEST_MCP_URL;
@@ -18,6 +19,20 @@ const transport = endpoint ? new StreamableHTTPClientTransport(new URL(endpoint)
 function verify(retailer,results) {
   assert.deepEqual(results.map(row => row.query),queries);
   for (const [i,row] of results.entries()) {
+    if (row.query === 'Rivotril sublingual') {
+      assert.equal(row.status,'matches',retailer);
+      assert.ok(row.products.length);
+      for (const p of row.products) {
+        assert.match(p.name,/^rivotril\b/i);
+        assert.match([p.form,...p.forms ?? []].join(' '),/sublingua(?:l|is)/i);
+        assert.match([p.pack,...p.packs ?? []].join(' '),/30\s+comprimidos?/i);
+        assert.match((p.strengths ?? p.ingredients.map(a=>a.strength)).join(' '),/0[.,]25\s*mg/i);
+        assert.deepEqual(p.routes ?? [p.route],['Sublingual']);
+        assert.ok(p.source);
+        for (const key of ['currentPrice','referencePriceBRL','inStock']) assert.ok(!(key in p));
+      }
+      continue;
+    }
     if (i >= 3 || (i === 0 && retailer === 'paguemenos' && !row.products.length)) {
       assert.ok(['no_reference','no_match'].includes(row.status));
       assert.equal(row.products.length,0);
