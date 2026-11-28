@@ -1,0 +1,1383 @@
+{
+  "caseDigest": "7c22796e9a9856cc6d557a7c7cf6a8455dc7db00d3126fa8af1abdf94ce2e520",
+  "capturedAt": "2026-11-28T09:57:29.587Z",
+  "evidence": {
+    "morfina": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "rivotril": {
+      "kind": "brand",
+      "sources": [
+        "marca no catálogo Drogasil"
+      ]
+    },
+    "paracetamol": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "frontal": {
+      "kind": "brand",
+      "sources": [
+        "marca no catálogo Drogasil"
+      ]
+    },
+    "clonazepam": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "prednisolona": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "amoxicilina": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "amoxil": {
+      "kind": "brand",
+      "sources": [
+        "marca no catálogo Drogasil"
+      ]
+    },
+    "paracetamol+cafeina": {
+      "kind": "brand",
+      "sources": [
+        "marca no catálogo Drogasil"
+      ]
+    },
+    "loratadina": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "tansulosina": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "zolpidem": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB"
+      ]
+    },
+    "metformina": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "omeprazol": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "mounjaro": {
+      "kind": "brand",
+      "sources": [
+        "marca no catálogo Drogasil"
+      ]
+    },
+    "gliclazida": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "dipirona": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "ibuprofeno": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "prednisona": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "amitriptilina": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "nortriptilina": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "clorfeniramina": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "clorpromazina": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "dexametasona": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "dexanfetamina": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB"
+      ]
+    },
+    "lorazepam": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "hidroxizina": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "hidroxicloroquina": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "alprazolam": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "prednicarbato": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB"
+      ]
+    },
+    "diazepam": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "clonidina": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "clobazam": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "insulina lispro": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "insulina humana": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "parecoxibe": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB"
+      ]
+    },
+    "piracetam": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "zopiclona": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB"
+      ]
+    },
+    "metoprolol": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB"
+      ]
+    },
+    "metotrexato": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "prazosina": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB"
+      ]
+    },
+    "triazolam": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB"
+      ]
+    },
+    "tramadol": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "ampicilina": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "amicacina": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB"
+      ]
+    },
+    "digoxina": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB",
+        "princípio ativo no catálogo Drogasil"
+      ]
+    },
+    "dipiridamol": {
+      "kind": "ingredient",
+      "sources": [
+        "DCB"
+      ]
+    }
+  },
+  "rows": [
+    {
+      "id": 1,
+      "candidates": [
+        "morfina"
+      ],
+      "local": "morfina",
+      "native": [
+        "morfina"
+      ],
+      "localMs": [
+        0.009,
+        0.007,
+        0.006,
+        0.005
+      ]
+    },
+    {
+      "id": 2,
+      "candidates": [
+        "rivotril"
+      ],
+      "local": "rivotril",
+      "native": [
+        "rivotril"
+      ],
+      "localMs": [
+        0.009,
+        0.009,
+        0.007,
+        0.007
+      ]
+    },
+    {
+      "id": 3,
+      "candidates": [
+        "paracetamol"
+      ],
+      "local": "paracetamol",
+      "native": [
+        "paracetamol"
+      ],
+      "localMs": [
+        0.012,
+        0.011,
+        0.011,
+        0.011
+      ]
+    },
+    {
+      "id": 4,
+      "candidates": [
+        "frontal"
+      ],
+      "local": "frontal",
+      "native": [
+        "frontal"
+      ],
+      "localMs": [
+        0.009,
+        0.008,
+        0.008,
+        0.017
+      ]
+    },
+    {
+      "id": 5,
+      "candidates": [
+        "clonazepam"
+      ],
+      "local": "clonazepam",
+      "native": [
+        "clonazepam"
+      ],
+      "localMs": [
+        0.009,
+        0.005,
+        0.003,
+        0.003
+      ]
+    },
+    {
+      "id": 6,
+      "candidates": [
+        "prednisolona"
+      ],
+      "local": "prednisolona",
+      "native": [
+        "prednisolona"
+      ],
+      "localMs": [
+        0.003,
+        0.003,
+        0.01,
+        0.003
+      ]
+    },
+    {
+      "id": 7,
+      "candidates": [
+        "morfina"
+      ],
+      "local": "morfina",
+      "native": [
+        "morfina"
+      ],
+      "localMs": [
+        3.695,
+        3.329,
+        2.354,
+        2.234
+      ]
+    },
+    {
+      "id": 8,
+      "candidates": [
+        "amoxicilina",
+        "amoxil"
+      ],
+      "local": "amoxicilina",
+      "native": [
+        "amoxicilina"
+      ],
+      "localMs": [
+        2.502,
+        1.918,
+        2.121,
+        2.363
+      ]
+    },
+    {
+      "id": 9,
+      "candidates": [
+        "paracetamol",
+        "paracetamol+cafeina"
+      ],
+      "local": "paracetamol",
+      "native": [
+        "paracetamol"
+      ],
+      "localMs": [
+        2.966,
+        2.919,
+        3.123,
+        2.187
+      ]
+    },
+    {
+      "id": 10,
+      "candidates": [
+        "loratadina"
+      ],
+      "local": "loratadina",
+      "native": [
+        "loratadina"
+      ],
+      "localMs": [
+        1.936,
+        1.946,
+        1.841,
+        1.875
+      ]
+    },
+    {
+      "id": 11,
+      "candidates": [
+        "tansulosina"
+      ],
+      "local": "tansulosina",
+      "native": [
+        "tansulosina"
+      ],
+      "localMs": [
+        1.812,
+        1.704,
+        1.917,
+        1.946
+      ]
+    },
+    {
+      "id": 12,
+      "candidates": [
+        "zolpidem"
+      ],
+      "local": "zolpidem",
+      "native": [
+        "zolpidem"
+      ],
+      "localMs": [
+        1.506,
+        1.668,
+        1.536,
+        1.548
+      ]
+    },
+    {
+      "id": 13,
+      "candidates": [
+        "frontal"
+      ],
+      "local": "frontal",
+      "native": [
+        "frontal"
+      ],
+      "localMs": [
+        1.983,
+        2.092,
+        1.864,
+        1.885
+      ]
+    },
+    {
+      "id": 14,
+      "candidates": [
+        "rivotril"
+      ],
+      "local": "rivotril",
+      "native": [
+        "rivotril"
+      ],
+      "localMs": [
+        2.495,
+        2.783,
+        2.767,
+        2.572
+      ]
+    },
+    {
+      "id": 15,
+      "candidates": [
+        "metformina"
+      ],
+      "local": "metformina",
+      "native": [
+        "metformina"
+      ],
+      "localMs": [
+        2.673,
+        2.592,
+        2.621,
+        2.405
+      ]
+    },
+    {
+      "id": 16,
+      "candidates": [
+        "loratadina"
+      ],
+      "local": "loratadina",
+      "native": [
+        "loratadina"
+      ],
+      "localMs": [
+        2.914,
+        2.881,
+        2.964,
+        2.961
+      ]
+    },
+    {
+      "id": 17,
+      "candidates": [
+        "paracetamol"
+      ],
+      "local": "paracetamol",
+      "native": [
+        "paracetamol"
+      ],
+      "localMs": [
+        2.517,
+        2.34,
+        2.056,
+        2.191
+      ]
+    },
+    {
+      "id": 18,
+      "candidates": [
+        "omeprazol"
+      ],
+      "local": "omeprazol",
+      "native": [
+        "omeprazol"
+      ],
+      "localMs": [
+        2.641,
+        2.435,
+        2.734,
+        2.454
+      ]
+    },
+    {
+      "id": 19,
+      "candidates": [
+        "amoxicilina"
+      ],
+      "local": "amoxicilina",
+      "native": [
+        "amoxicilina"
+      ],
+      "localMs": [
+        0.649,
+        0.637,
+        0.714,
+        0.752
+      ]
+    },
+    {
+      "id": 20,
+      "candidates": [
+        "clonazepam"
+      ],
+      "local": "clonazepam",
+      "native": [
+        "clonazepam"
+      ],
+      "localMs": [
+        0.622,
+        0.587,
+        0.605,
+        0.617
+      ]
+    },
+    {
+      "id": 21,
+      "candidates": [
+        "mounjaro"
+      ],
+      "local": "mounjaro",
+      "native": [
+        "mounjaro"
+      ],
+      "localMs": [
+        0.711,
+        0.529,
+        0.556,
+        0.584
+      ]
+    },
+    {
+      "id": 22,
+      "candidates": [
+        "gliclazida"
+      ],
+      "local": "gliclazida",
+      "native": [
+        "gliclazida"
+      ],
+      "localMs": [
+        0.731,
+        0.834,
+        0.598,
+        0.588
+      ]
+    },
+    {
+      "id": 23,
+      "candidates": [
+        "dipirona"
+      ],
+      "local": "dipirona",
+      "native": [
+        "dipirona"
+      ],
+      "localMs": [
+        2.544,
+        2.596,
+        2.752,
+        2.579
+      ]
+    },
+    {
+      "id": 24,
+      "candidates": [
+        "rivotril"
+      ],
+      "local": "rivotril",
+      "native": [
+        "rivotril"
+      ],
+      "localMs": [
+        2.374,
+        2.285,
+        2.286,
+        2.337
+      ]
+    },
+    {
+      "id": 25,
+      "candidates": [
+        "paracetamol"
+      ],
+      "local": "paracetamol",
+      "native": [
+        "paracetamol"
+      ],
+      "localMs": [
+        0.591,
+        0.706,
+        0.616,
+        0.573
+      ]
+    },
+    {
+      "id": 26,
+      "candidates": [
+        "metformina"
+      ],
+      "local": "metformina",
+      "native": [
+        "metformina"
+      ],
+      "localMs": [
+        0.574,
+        0.628,
+        0.754,
+        0.752
+      ]
+    },
+    {
+      "id": 27,
+      "candidates": [
+        "morfina"
+      ],
+      "local": "morfina",
+      "native": [
+        "morfina"
+      ],
+      "localMs": [
+        0.887,
+        0.811,
+        0.757,
+        0.602
+      ]
+    },
+    {
+      "id": 28,
+      "candidates": [
+        "ibuprofeno"
+      ],
+      "local": "ibuprofeno",
+      "native": [
+        "ibuprofeno"
+      ],
+      "localMs": [
+        0.59,
+        0.585,
+        0.716,
+        0.715
+      ]
+    },
+    {
+      "id": 29,
+      "candidates": [
+        "prednisona",
+        "prednisolona"
+      ],
+      "local": null,
+      "native": [
+        "prednisona",
+        "prednisolona"
+      ],
+      "localMs": [
+        3.722,
+        4.213,
+        4.545,
+        3.584
+      ]
+    },
+    {
+      "id": 30,
+      "candidates": [
+        "amitriptilina",
+        "nortriptilina"
+      ],
+      "local": null,
+      "native": [
+        "amitriptilina",
+        "nortriptilina"
+      ],
+      "localMs": [
+        0.79,
+        0.85,
+        0.654,
+        0.64
+      ]
+    },
+    {
+      "id": 31,
+      "candidates": [
+        "clorfeniramina",
+        "clorpromazina"
+      ],
+      "local": null,
+      "native": [
+        "clorfenesina",
+        "clormadinona",
+        "clortalidona",
+        "cloranfenicol",
+        "clorpromazina",
+        "clorfeniramina",
+        "clordiazepoxido"
+      ],
+      "localMs": [
+        0.849,
+        0.67,
+        0.784,
+        0.593
+      ]
+    },
+    {
+      "id": 32,
+      "candidates": [
+        "dexametasona",
+        "dexanfetamina"
+      ],
+      "local": "dexametasona",
+      "native": [
+        "dexametasona"
+      ],
+      "localMs": [
+        3.39,
+        3.352,
+        3.354,
+        3.369
+      ]
+    },
+    {
+      "id": 33,
+      "candidates": [
+        "loratadina",
+        "lorazepam"
+      ],
+      "local": null,
+      "native": [
+        "lorazepam",
+        "loratadina"
+      ],
+      "localMs": [
+        5.714,
+        5.644,
+        5.808,
+        5.833
+      ]
+    },
+    {
+      "id": 34,
+      "candidates": [
+        "hidroxizina",
+        "hidroxicloroquina"
+      ],
+      "local": null,
+      "native": [
+        "hidroxizina",
+        "hidroxiureia",
+        "hidroxiquinolina",
+        "hidroxicloroquina"
+      ],
+      "localMs": [
+        4.66,
+        4.536,
+        4.462,
+        4.882
+      ]
+    },
+    {
+      "id": 35,
+      "candidates": [
+        "rivotril",
+        "alprazolam",
+        "lorazepam"
+      ],
+      "local": null,
+      "native": [
+        "frontal"
+      ],
+      "localMs": [
+        0.002,
+        0.002,
+        0.001,
+        0.001
+      ]
+    },
+    {
+      "id": 36,
+      "candidates": [
+        "prednisolona",
+        "prednicarbato"
+      ],
+      "local": null,
+      "native": [
+        "prednisona"
+      ],
+      "localMs": [
+        0.001,
+        0.001,
+        0.001,
+        0.001
+      ]
+    },
+    {
+      "id": 37,
+      "candidates": [
+        "morfina",
+        "dipirona",
+        "diazepam"
+      ],
+      "local": null,
+      "native": [],
+      "localMs": [
+        2.464,
+        2.2,
+        2.269,
+        2.273
+      ]
+    },
+    {
+      "id": 38,
+      "candidates": [
+        "clonidina",
+        "clobazam"
+      ],
+      "local": null,
+      "native": [
+        "clonazepam"
+      ],
+      "localMs": [
+        0.001,
+        0.001,
+        0.001,
+        0.001
+      ]
+    },
+    {
+      "id": 39,
+      "candidates": [
+        "insulina lispro",
+        "insulina humana"
+      ],
+      "local": null,
+      "native": [
+        "insulina glargina"
+      ],
+      "localMs": [
+        0.001,
+        0.001,
+        0.001,
+        0.001
+      ]
+    },
+    {
+      "id": 40,
+      "candidates": [
+        "parecoxibe",
+        "piracetam"
+      ],
+      "local": null,
+      "native": [
+        "paracetamol"
+      ],
+      "localMs": [
+        2.034,
+        2.023,
+        2.092,
+        2.033
+      ]
+    },
+    {
+      "id": 41,
+      "candidates": [
+        "zolpidem",
+        "zopiclona"
+      ],
+      "local": null,
+      "native": [],
+      "localMs": [
+        3.969,
+        4.071,
+        3.983,
+        3.43
+      ]
+    },
+    {
+      "id": 42,
+      "candidates": [
+        "metformina",
+        "metoprolol",
+        "metotrexato"
+      ],
+      "local": null,
+      "native": [],
+      "localMs": [
+        3.051,
+        3.094,
+        2.942,
+        3.212
+      ]
+    },
+    {
+      "id": 43,
+      "candidates": [
+        "omeprazol",
+        "prazosina"
+      ],
+      "local": null,
+      "native": [],
+      "localMs": [
+        2.719,
+        2.551,
+        2.598,
+        2.502
+      ]
+    },
+    {
+      "id": 44,
+      "candidates": [],
+      "local": null,
+      "native": [],
+      "localMs": [
+        2.488,
+        2.672,
+        2.602,
+        2.699
+      ]
+    },
+    {
+      "id": 45,
+      "candidates": [],
+      "local": null,
+      "native": [],
+      "localMs": [
+        2.225,
+        2.137,
+        2.075,
+        2.091
+      ]
+    },
+    {
+      "id": 46,
+      "candidates": [
+        "triazolam",
+        "tramadol"
+      ],
+      "local": null,
+      "native": [],
+      "localMs": [
+        2.591,
+        2.848,
+        2.619,
+        2.644
+      ]
+    },
+    {
+      "id": 47,
+      "candidates": [
+        "prednisona",
+        "prednisolona"
+      ],
+      "local": "prednisolona",
+      "native": [
+        "prednisolona"
+      ],
+      "localMs": [
+        1.823,
+        1.665,
+        1.716,
+        1.638
+      ]
+    },
+    {
+      "id": 48,
+      "candidates": [
+        "loratadina",
+        "lorazepam"
+      ],
+      "local": "lorazepam",
+      "native": [
+        "lorazepam"
+      ],
+      "localMs": [
+        2.734,
+        2.434,
+        2.55,
+        2.507
+      ]
+    },
+    {
+      "id": 49,
+      "candidates": [
+        "hidroxizina",
+        "hidroxicloroquina"
+      ],
+      "local": "hidroxicloroquina",
+      "native": [
+        "hidroxicloroquina"
+      ],
+      "localMs": [
+        1.122,
+        1.087,
+        1.169,
+        1.071
+      ]
+    },
+    {
+      "id": 50,
+      "candidates": [
+        "clonidina",
+        "clonazepam"
+      ],
+      "local": "clonidina",
+      "native": [
+        "clonidina"
+      ],
+      "localMs": [
+        2.423,
+        2.494,
+        2.752,
+        2.649
+      ]
+    },
+    {
+      "id": 51,
+      "candidates": [
+        "paracetamol"
+      ],
+      "local": "paracetamol",
+      "native": [
+        "paracetamol"
+      ],
+      "localMs": [
+        1.922,
+        2.167,
+        1.824,
+        1.742
+      ]
+    },
+    {
+      "id": 52,
+      "candidates": [
+        "piracetam",
+        "metformina",
+        "paracetamol"
+      ],
+      "local": "paracetamol",
+      "native": [
+        "paracetamol"
+      ],
+      "localMs": [
+        1.997,
+        1.88,
+        1.897,
+        1.813
+      ]
+    },
+    {
+      "id": 53,
+      "candidates": [],
+      "local": null,
+      "native": [],
+      "localMs": [
+        3.805,
+        3.799,
+        3.604,
+        3.48
+      ]
+    },
+    {
+      "id": 54,
+      "candidates": [
+        "frontal",
+        "lorazepam",
+        "rivotril"
+      ],
+      "local": null,
+      "native": [],
+      "localMs": [
+        3.448,
+        3.674,
+        3.562,
+        3.587
+      ]
+    },
+    {
+      "id": 55,
+      "candidates": [],
+      "local": null,
+      "native": [],
+      "localMs": [
+        3.838,
+        3.623,
+        3.597,
+        3.706
+      ]
+    },
+    {
+      "id": 56,
+      "candidates": [
+        "zopiclona",
+        "diazepam",
+        "zolpidem"
+      ],
+      "local": null,
+      "native": [],
+      "localMs": [
+        3.632,
+        3.567,
+        3.48,
+        3.79
+      ]
+    },
+    {
+      "id": 57,
+      "candidates": [
+        "tansulosina"
+      ],
+      "local": "tansulosina",
+      "native": [
+        "tansulosina"
+      ],
+      "localMs": [
+        1.56,
+        1.637,
+        1.659,
+        1.495
+      ]
+    },
+    {
+      "id": 58,
+      "candidates": [
+        "clonidina",
+        "loratadina",
+        "tansulosina"
+      ],
+      "local": "tansulosina",
+      "native": [
+        "tansulosina"
+      ],
+      "localMs": [
+        1.703,
+        1.571,
+        1.593,
+        1.55
+      ]
+    },
+    {
+      "id": 59,
+      "candidates": [
+        "mounjaro"
+      ],
+      "local": "mounjaro",
+      "native": [
+        "mounjaro"
+      ],
+      "localMs": [
+        2.327,
+        2.344,
+        2.407,
+        2.132
+      ]
+    },
+    {
+      "id": 60,
+      "candidates": [
+        "frontal",
+        "rivotril",
+        "mounjaro"
+      ],
+      "local": "mounjaro",
+      "native": [
+        "mounjaro"
+      ],
+      "localMs": [
+        2.184,
+        2.164,
+        2.318,
+        2.196
+      ]
+    },
+    {
+      "id": 61,
+      "candidates": [],
+      "local": null,
+      "native": [],
+      "localMs": [
+        1.927,
+        1.815,
+        1.959,
+        1.864
+      ]
+    },
+    {
+      "id": 62,
+      "candidates": [
+        "ampicilina",
+        "amicacina",
+        "amoxicilina"
+      ],
+      "local": null,
+      "native": [],
+      "localMs": [
+        2.131,
+        1.808,
+        1.831,
+        1.766
+      ]
+    },
+    {
+      "id": 63,
+      "candidates": [],
+      "local": null,
+      "native": [],
+      "localMs": [
+        2.933,
+        2.984,
+        2.857,
+        3.002
+      ]
+    },
+    {
+      "id": 64,
+      "candidates": [
+        "clonidina",
+        "clobazam",
+        "clonazepam"
+      ],
+      "local": null,
+      "native": [],
+      "localMs": [
+        2.998,
+        2.826,
+        2.931,
+        2.612
+      ]
+    },
+    {
+      "id": 65,
+      "candidates": [],
+      "local": null,
+      "native": [],
+      "localMs": [
+        2.686,
+        2.648,
+        2.783,
+        2.621
+      ]
+    },
+    {
+      "id": 66,
+      "candidates": [
+        "digoxina",
+        "dipiridamol",
+        "dipirona"
+      ],
+      "local": null,
+      "native": [],
+      "localMs": [
+        2.643,
+        2.779,
+        2.557,
+        2.578
+      ]
+    }
+  ]
+}
