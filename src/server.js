@@ -9,7 +9,14 @@ import { quoteShoppingList } from 'paguemenos-cli/plan';
 import { providers, retailPartners } from './providers.js';
 import { operations, request, schemas } from './index.js';
 
-const productNames = 'Accept a supplied SKU silently. Never ask for, mention, or display a SKU, its value, or a barcode in any user-facing reply, including errors and follow-ups. Identify products by name and presentation. Offer numbered choices when clarification is needed.';
+const productNames = 'Accept a supplied SKU silently. Never ask for, mention, or display a SKU, its value, or a barcode in any user-facing reply, including errors and follow-ups. Identify products by name and presentation. Use the name and presentation for follow-up choices.';
+
+const presentationGuidance = 'O catálogo encontrou várias apresentações. Em uma pergunta de balcão, faça uma pergunta curta sobre uma diferença que aparece nas opções e que a pessoa ainda não especificou. Priorize dose, forma ou liberação quando diferirem. Se só o tamanho da caixa importar, pergunte quantos comprimidos ela procura. Guarde a relação de produtos para quando a pessoa pedir as opções. Uma apresentação ainda por escolher não confirma estoque. Se já houver resultados de outros itens da cesta, apresente-os.';
+
+function needsPresentationChoice(table) {
+  if (table.status === 'choose_reference') return table.choices?.length > 1;
+  return ['ambiguous', 'presentation_options'].includes(table.status) && table.candidates?.length > 1;
+}
 
 const descriptions = {
   retailers: 'List supported Brazilian retailers and the stock and price evidence each can provide.',
@@ -65,6 +72,15 @@ export function toolReply(name, args, value) {
   return {content, structuredContent};
 }
 
+export function shoppingReply(response) {
+  if (!response.structuredContent?.tables?.some(needsPresentationChoice)) return response;
+  const structuredContent = { ...response.structuredContent, presentationGuidance };
+  return { ...response, structuredContent, content: [
+    { type: 'text', text: presentationGuidance },
+    { type: 'text', text: JSON.stringify(structuredContent) },
+  ] };
+}
+
 export function createServer(monitor = null) {
   const server = new McpServer({ name: 'farmacias-br', version }, {
     instructions: productNames + ' Use pharmacy_* tools for Pague Menos and Drogaria São Paulo. For their factual questions call pharmacy_info without a CEP. For a brand shopping request settle generic preference first. Use pharmacy_compare for local catalog alternatives and pharmacy_basket for selected local SKUs. Drogasil branch planning, nearest-store quantities and 25 km expansion use the Drogasil tools.'
@@ -83,12 +99,12 @@ export function createServer(monitor = null) {
         return registry.registerTool(name, {...options, description,
           inputSchema: {...options.inputSchema, retailer:z.enum(['drogasil','paguemenos','drogariasaopaulo']).optional()}},
         async ({retailer='drogasil', ...args},extra) => {
-          if (retailer==='drogasil') return handler(args,extra);
+          if (retailer === 'drogasil') return shoppingReply(await handler(args, extra));
           if (args.store || args.expandSearch) return toolReply(name,args,{retailerId:retailer,status:'branch_inventory_unverified',
             reason:'A rede confirma retirada para a quantidade pedida. O estoque físico de cada filial é desconhecido.'});
           const items=args.items.map(({selectedSku,quantity=1,...rest})=>({...rest,sku:selectedSku,quantity}));
           const result=await quoteShoppingList(retailer,providers[retailer],items,args.origin.zipcode??args.origin);
-          return toolReply(name,args,result);
+          return shoppingReply(toolReply(name, args, result));
         });
       }
       if (name==='compare_pharmacy_prices') {
