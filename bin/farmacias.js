@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
+import {planArgs,planUsage} from './plan-args.js';
 import { request } from '../src/index.js';
 
 const usage = `Farmácias BR
   farmacias retailers
+  ${planUsage}
   farmacias search <nome> [--retailer ID] [--page N] [--limit N]
   farmacias suggest <prefixo> [--retailer ID] [--limit N]
   farmacias product <SKU> --retailer ID
@@ -19,6 +21,14 @@ const usage = `Farmácias BR
   farmacias prices <nome, SKU ou GTIN> --cep CEP [--retailer ID] [--generics]
   Resultados em JSON. Os identificadores de loja estão em farmacias retailers.`;
 try {
+  if (process.argv[2]==='plan') {
+    const terms=process.argv.slice(3);
+    if (terms.includes('--help') || terms.includes('-h')) console.log(planUsage);
+    else console.log(JSON.stringify(await request('plan',planArgs(terms)),null,2));
+  } else await runOther();
+} catch (err) { console.error(err.message); process.exitCode = 1; }
+
+async function runOther() {
   const { positionals: [operation, ...terms], values } = parseArgs({ allowPositionals: true, options: {
     lat: { type: 'string' }, lon: { type: 'string' }, help: { type: 'boolean', short: 'h' }, retailer: { type: 'string' }, cep: { type: 'string' },
     gtin: {type:'string'}, 'max-items':{type:'string'}, offset:{type:'string'},
@@ -51,4 +61,4 @@ try {
     for (const key of ['limit','page','quantity']) if (values[key] !== undefined) args[key] = Number(values[key]);
     console.log(JSON.stringify(await request(operation, args), null, 2));
   }
-} catch (err) { console.error(err.message); process.exitCode = 1; }
+}

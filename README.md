@@ -103,3 +103,12 @@ farmacias read_snapshot "$RUN_ID" --limit 5
 O teste de aceitação chama o MCP por stdio contra os catálogos reais, exercita os dois CEPs informados no momento do teste e descarta seu banco temporário de snapshots. Ele valida separadamente o escopo do preço, a quantidade consultada, o vendedor e a opção de retirada comum. Execute `node scripts/check-retailer-workflows.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"` com dois CEPs de teste para as cotações. O número de lojas e os preços variam.
 
 Para verificar também os executáveis dos dois pacotes parceiros publicados no GitHub, execute `node scripts/check-sibling-clis.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"`. O teste cobre busca, sugestões, SKU, informações, código de barras, estoque.
+
+
+### Cestas por nome em uma ou várias redes
+
+```sh
+farmacias plan "Patz GTS em gotas, frasco de 20 mL" "loratadina 10 mg" --retailers paguemenos,drogariasaopaulo --brand-only A --cep "$CEP"
+```
+
+O MCP recebe a mesma consulta em uma chamada a `plan_purchase`. Uma marca sem preferência definida gera uma pergunta antes da consulta de compra. Use `--quantity A=2` para pedir duas embalagens e `--sku A=paguemenos:123` para manter uma escolha de SKU naquela rede. A resposta agrupa as cestas por farmácia e preserva o estoque desconhecido, as escolhas pendentes e as falhas de consulta. Os planos de compra se referem a filiais de uma mesma rede. Cada cotação informa se há um ponto de retirada comum a todos os itens.

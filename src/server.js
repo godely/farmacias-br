@@ -1,3 +1,4 @@
+import {purchaseDescription,purchaseSchema} from './named-baskets.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -63,7 +64,7 @@ export function toolReply(name, args, value) {
 
 export function createServer(monitor = null) {
   const server = new McpServer({ name: 'farmacias-br', version }, {
-    instructions: 'Use pharmacy_* tools for Pague Menos and Drogaria São Paulo. For their factual questions call pharmacy_info without a CEP. For a brand shopping request settle generic preference first. Use pharmacy_compare for local catalog alternatives and pharmacy_basket for selected local SKUs. Drogasil branch planning, nearest-store quantities and 25 km expansion use the Drogasil tools.'
+    instructions: 'Use pharmacy_* tools for Pague Menos and Drogaria São Paulo. For their factual questions call pharmacy_info without a CEP. For a brand shopping request settle generic preference first. Use pharmacy_compare for local catalog alternatives and pharmacy_basket for selected local SKUs. For named shopping use plan_purchase once for the entire basket and selected retailers after settling generic preferences.'
   });
   const registry = monitor ? {
     registerTool(name, options, handler) {
@@ -73,6 +74,10 @@ export function createServer(monitor = null) {
   } : server;
   registerDrogasilTools({
     registerTool(name, options, handler) {
+      if (name==='plan_purchase') {
+        return registry.registerTool(name,{...options,inputSchema:purchaseSchema,description:purchaseDescription+' '+options.description},
+          async args=>toolReply(name,args,await request('plan',args)));
+      }
       const shared = ['compare_pharmacy_prices','read_catalog_snapshot'].includes(name);
       const description = shared ? options.description : 'Drogasil only. ' + options.description;
       return registry.registerTool(name,{...options,description},handler);

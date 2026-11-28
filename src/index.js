@@ -1,3 +1,5 @@
+import {inventoryConfig} from 'paguemenos-cli/branch-inventory';
+import {purchaseSchema,planSelectedBaskets} from './named-baskets.js';
 import { z } from 'zod';
 import { validGtin } from 'paguemenos-cli/vtex';
 import { retailerBasket, retailerComparison } from './retailer-shopping.js';
@@ -16,6 +18,7 @@ const withLocation = shape => z.strictObject({ ...shape, ...location })
   .refine(value => Boolean(value.zipcode || value.coordinates), 'Informe o CEP ou as coordenadas');
 const query = z.string().trim().min(1).max(150);
 export const schemas = {
+  plan: purchaseSchema,
   retailers: z.strictObject({}),
   search: z.strictObject({ query, retailer: retailer.optional(), page: z.number().int().min(1).max(100).default(1),
     limit: z.number().int().min(1).max(50).default(10) }),
@@ -44,10 +47,10 @@ const stockEvidence = { drogasil: 'branch_quantity', paguemenos: 'fulfillment_qu
 
 export function listRetailers() {
   return retailerIds.map(id => ({ id, retailer: providers[id].name, stockEvidence: stockEvidence[id],
-    capabilities:{batchSku:true, exactGtin:true, medicationInfo:'catalog', catalogSnapshots:true,
+    capabilities:{namedBasket:true, multiRetailerNamedBasket:true, batchSku:true, exactGtin:true, medicationInfo:'catalog', catalogSnapshots:true,
       stockOrigin:id === 'drogasil' ? ['cep','coordinates'] : ['cep'],
-      storeDirectory:typeof providers[id].stores === 'function', nearestBranch:id === 'drogasil', exactBranchQuantity:id === 'drogasil',
-      purchasePlan:id === 'drogasil', equivalentPresentations:id === 'drogasil' ? 'native' : 'verified_barcode_bridge',
+      storeDirectory:id === 'drogasil', nearestBranch:true, exactBranchQuantity:id === 'drogasil' || Boolean(inventoryConfig(id)),
+      purchasePlan:id === 'drogasil' || Boolean(inventoryConfig(id)), equivalentPresentations:id === 'drogasil' ? 'native' : 'verified_barcode_bridge',
       basket:id === 'drogasil' ? 'branch_plan' : 'joint_fulfillment_quote'},
     priceEvidence: stockEvidence[id] === 'fulfillment_quote' ? 'cep_quote_if_fulfillable' : 'online_or_reference' }));
 }
@@ -194,7 +197,7 @@ export async function medicationInfo(args, sources = providers) {
   }
   return catalogInfo(input,sources[input.retailer]);
 }
-export const operations = { retailers: listRetailers, search: searchCatalog, suggest: suggestTerms, product: getProduct,
+export const operations = { plan: planSelectedBaskets, retailers: listRetailers, search: searchCatalog, suggest: suggestTerms, product: getProduct,
   stock: getStock, prices: comparePrices, info: medicationInfo,
   stores: async ({retailer,page,limit}) => {
     const all = await providers[retailer].stores();
