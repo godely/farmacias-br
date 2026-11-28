@@ -1,6 +1,6 @@
 {
   "name": "farmacias-br",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.js"

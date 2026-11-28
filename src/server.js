@@ -5,8 +5,8 @@ import { z } from 'zod';
 import { createRequire } from 'node:module';
 const { version } = createRequire(import.meta.url)('../package.json');
 import { registerDrogasilTools } from 'drogasil-cli/mcp-tools';
-import { quoteShoppingList } from 'paguemenos-cli/plan';
-import { providers, retailPartners } from './providers.js';
+import {purchaseDescription, purchaseSchema} from './named-baskets.js';
+import { retailPartners } from './providers.js';
 import { operations, request, schemas } from './index.js';
 
 const productNames = 'Accept a supplied SKU silently. Never ask for, mention, or display a SKU, its value, or a barcode in any user-facing reply, including errors and follow-ups. Identify products by name and presentation. Use the name and presentation for follow-up choices.';
@@ -78,8 +78,12 @@ export function shoppingReply(response) {
   const data = response.structuredContent;
   if (!data) return response;
   const guidance = {};
-  if (data.tables?.some(needsPresentationChoice)) guidance.presentationGuidance = presentationGuidance;
-  if (data.coverage || data.planningScope === 'one_pack_alternatives') guidance.priceGuidance = priceGuidance;
+  const outcomes = data.results ?? [data];
+  if (outcomes.some(row => row.tables?.some(needsPresentationChoice))) guidance.presentationGuidance = presentationGuidance;
+  if (outcomes.some(row => row.coverage || row.planningScope === 'one_pack_alternatives')) guidance.priceGuidance = priceGuidance;
+  if (data.checkedRetailers && data.scope === 'whole_basket_per_retailer') {
+    guidance.retailerGuidance = 'Responda pelas redes consultadas. Se outra rede tiver retirada, estoque ou resultado pendente, uma busca sem estoque na Drogasil sozinha não justifica ampliar o raio.';
+  }
   const notes = Object.values(guidance);
   if (!notes.length) return response;
   const structuredContent = { ...data, ...guidance };
@@ -91,7 +95,7 @@ export function shoppingReply(response) {
 
 export function createServer(monitor = null) {
   const server = new McpServer({ name: 'farmacias-br', version }, {
-    instructions: productNames + ' Use pharmacy_* tools for Pague Menos and Drogaria São Paulo. For their factual questions call pharmacy_info without a CEP. For a brand shopping request settle generic preference first. Use pharmacy_compare for local catalog alternatives and pharmacy_basket for selected local SKUs. Drogasil branch planning, nearest-store quantities and 25 km expansion use the Drogasil tools.'
+    instructions: purchaseDescription + ' ' + productNames + ' Use pharmacy_* tools for Pague Menos and Drogaria São Paulo. For their factual questions call pharmacy_info without a CEP. For a brand shopping request settle generic preference first. Use pharmacy_compare for local catalog alternatives and pharmacy_basket for selected local SKUs. Drogasil branch planning, nearest-store quantities and 25 km expansion use the Drogasil tools.'
   });
   const registry = {
     registerTool(name, options, handler) {
@@ -103,17 +107,9 @@ export function createServer(monitor = null) {
   registerDrogasilTools({
     registerTool(name, options, handler) {
       if (name === 'plan_purchase') {
-        const description = 'Check a named or exact-SKU basket in one call after generic preferences are settled. Send one item per medication the shopper needs. For a pack-size reply update the same query with the name, strength, form and chosen pack. Manufacturers of the same ingredient are alternative offers for that one item. Set retailer for the requested chain. Drogasil reports physical branch quantities and route plans. Pague Menos and Drogaria São Paulo verify fulfillment for selected quantities, report unresolved presentations and common pickup options. For those chains physical stock, fixed closest branch, 25 km inventory and optimized routes remain unverified. ' + options.description;
-        return registry.registerTool(name, {...options, description,
-          inputSchema: {...options.inputSchema, retailer:z.enum(['drogasil','paguemenos','drogariasaopaulo']).optional()}},
-        async ({retailer='drogasil', ...args},extra) => {
-          if (retailer === 'drogasil') return shoppingReply(await handler(args, extra));
-          if (args.store || args.expandSearch) return toolReply(name,args,{retailerId:retailer,status:'branch_inventory_unverified',
-            reason:'A rede confirma retirada para a quantidade pedida. O estoque físico de cada filial é desconhecido.'});
-          const items=args.items.map(({selectedSku,quantity=1,...rest})=>({...rest,sku:selectedSku,quantity}));
-          const result=await quoteShoppingList(retailer,providers[retailer],items,args.origin.zipcode??args.origin);
-          return shoppingReply(toolReply(name, args, result));
-        });
+        return registry.registerTool(name, {...options, inputSchema:purchaseSchema,
+          description:purchaseDescription + ' ' + options.description}, async args =>
+          shoppingReply(toolReply(name, args, await request('plan', args))));
       }
       if (name==='compare_pharmacy_prices') {
         return registry.registerTool(name,{...options,inputSchema:{...options.inputSchema,retailers:schemas.baskets.shape.retailers.optional()},

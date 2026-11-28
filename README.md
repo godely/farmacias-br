@@ -2,6 +2,8 @@
 
 Uma API para consultar Drogasil, Pague Menos e Drogaria São Paulo. A mesma consulta pode ser feita pelo terminal, por HTTP e por clientes MCP. O CEP vem de quem consulta. Cada rede confirma a disponibilidade na área que atende.
 
+Para buscar uma caixa perto de você nas três redes, use, por exemplo, `farmacias plan "ibuprofeno 600 mg 20 comprimidos" --cep "$CEP"`. Para escolher uma rede, acrescente `--retailer paguemenos`. Para escolher duas, use `--retailers drogasil,drogariasaopaulo`. No plugin, pergunte “Onde eu acho ibuprofeno perto de mim?” e escolha a apresentação quando o assistente perguntar. Na resposta, a Drogasil informa estoque da filial. As outras duas redes confirmam a retirada para a quantidade solicitada.
+
 ## Instalar e consultar
 
 Em uma cópia deste repositório, execute `npm ci` com Node.js 20 ou superior. Use `node bin/farmacias.js` ou instale o pacote com `npm install -g .` para usar o comando `farmacias`. Python 3 e curl são usados para snapshots e páginas de oferta da Drogasil.

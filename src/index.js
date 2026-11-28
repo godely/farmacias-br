@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { validGtin } from 'paguemenos-cli/vtex';
 import { compareOffers } from 'paguemenos-cli/compare';
+import {planSelectedBaskets, purchaseSchema} from './named-baskets.js';
 import { compareBaskets } from './baskets.js';
 import { retailerBasket, catalogInfo, catalogType } from 'drogasil-cli/retailer-workflows';
 import { compareRetailPrices, getMedicationInfo, readSnapshot } from 'drogasil-cli';
@@ -19,6 +20,7 @@ const withLocation = shape => z.strictObject({ ...shape, ...location })
   .refine(value => Boolean(value.zipcode || value.coordinates), 'Informe o CEP ou as coordenadas');
 const query = z.string().trim().min(1).max(150);
 export const schemas = {
+  plan: purchaseSchema,
   retailers: z.strictObject({}),
   search: z.strictObject({ query, retailer: retailer.optional(), retailers: selection.optional(), page: z.number().int().min(1).max(100).default(1),
     limit: z.number().int().min(1).max(100).default(10) }).refine(v=>!v.retailer || !v.retailers,'Use retailer ou retailers'),
@@ -201,7 +203,7 @@ export async function medicationInfo(args, sources = providers) {
   }
   return catalogInfo(input,sources[input.retailer]);
 }
-export const operations = { retailers: listRetailers, search: searchCatalog, suggest: suggestTerms, product: getProduct,
+export const operations = { plan: planSelectedBaskets, retailers: listRetailers, search: searchCatalog, suggest: suggestTerms, product: getProduct,
   stock: getStock, prices: comparePrices, info: medicationInfo,
   baskets: args => compareBaskets(args,providers),
   stores: async ({retailer,page,limit,zipcode,coordinates}) => {
