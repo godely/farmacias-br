@@ -57,7 +57,7 @@ export function listRetailers() {
     capabilities:{batchSku:true, exactGtin:true, medicationInfo:'catalog', catalogSnapshots:true,
       stockOrigin:['cep','coordinates'], directoryScope:providers[id].directoryScope??'national',
       storeDirectory:typeof providers[id].stores === 'function', nearestBranch:id === 'drogasil', exactBranchQuantity:id === 'drogasil',
-      namedBasket:true, locationAwareComparison:true, purchasePlan:id === 'drogasil', equivalentPresentations:id === 'drogasil' ? 'native' : 'verified_barcode_bridge',
+      namedBasket:true, locationAwareComparison:true, purchasePlan:true, planningEvidence:id === 'drogasil' ? 'reported_branch_stock' : 'confirmed_pickup_points', equivalentPresentations:id === 'drogasil' ? 'native' : 'verified_barcode_bridge',
       basket:id === 'drogasil' ? 'branch_plan' : 'joint_fulfillment_quote'},
     priceEvidence: stockEvidence[id] === 'fulfillment_quote' ? 'cep_quote_if_fulfillable' : 'online_or_reference' }));
 }
