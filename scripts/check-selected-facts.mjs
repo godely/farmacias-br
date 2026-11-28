@@ -17,13 +17,15 @@ const transport = endpoint ? new StreamableHTTPClientTransport(new URL(endpoint)
   new StdioClientTransport({command:process.execPath,args:[entry('server')]});
 
 function verify(data, retailers) {
-  assert.equal(data.status,'checked');
+  const hasSP = retailers.includes('drogariasaopaulo');
+  assert.equal(data.status,hasSP ? 'partial' : 'checked');
   assert.deepEqual(data.results.map(x=>x.retailerId),retailers);
   for (const group of data.results) {
     assert.deepEqual(group.results.map(row=>row.query),queries);
     const [brand, ingredient] = group.results;
     for (const row of [brand,ingredient]) {
-      assert.equal(row.status,'matches',group.retailerId);
+      const conflict = row === ingredient && group.retailerId === 'drogariasaopaulo';
+      assert.equal(row.status, conflict ? 'partial' : 'matches',group.retailerId);
       for (const item of row.products) {
         for (const field of ['referencePriceBRL','currentPrice','inStock','branchQuantity']) assert.ok(!(field in item));
         assert.ok(item.source);
@@ -33,7 +35,16 @@ function verify(data, retailers) {
     assert.ok(brand.products.some(p=>/sublingua/i.test([p.form,...p.forms??[]].join(' '))));
     assert.ok(brand.products.some(p=>/2[,.]5\s*mg\s*\/\s*ml/i.test(
       [...p.strengths??[],...p.ingredients?.map(i=>i.strength)??[]].join(' '))));
-    assert.ok(ingredient.products.length);
+    if (group.retailerId === 'drogariasaopaulo') {
+      const pack = ingredient.unconfirmedProducts.find(p=>/^Stub\b/i.test(p.name));
+      assert.ok(pack);
+      assert.equal(pack.manufacturer,null);
+      assert.ok(!ingredient.products.some(p=>p.sku===pack.sku));
+      assert.deepEqual(pack.manufacturerClaims.map(c=>c.name.toLowerCase()).sort(),['biolab','eurofarma']);
+      assert.ok(pack.manufacturerClaims.every(c=>c.url));
+      assert.deepEqual([pack.prescription.required,pack.prescription.retained],[true,false]);
+      assert.match(pack.prescription.stripeRule,/gov\.br\/anvisa\//);
+    } else assert.ok(ingredient.products.length);
     for (const p of ingredient.products) {
       assert.match([p.name,...p.activeIngredients??[],...p.ingredients?.map(i=>i.name)??[]].join(' '),/\btansulosina\b/i);
       assert.equal(p.manufacturer?.toLowerCase(),'eurofarma');
@@ -56,11 +67,19 @@ try {
   await client.connect(transport);
   for (const id of ids) {
     const bin = fileURLToPath(new URL('../node_modules/.bin/'+id,import.meta.url));
-    const {stdout} = await run(process.execPath,[bin,'info',...queries],{timeout:180000,maxBuffer:4*1024*1024});
+    let stdout;
+    try {
+      ({stdout} = await run(process.execPath,[bin,'info',...queries],{timeout:180000,maxBuffer:4*1024*1024}));
+      assert.notEqual(id,'drogariasaopaulo','expected a partial match on manufacturer');
+    } catch (error) {
+      if (id !== 'drogariasaopaulo' || error.code !== 2) throw error;
+      stdout = error.stdout;
+    }
     assert.match(stdout,/Via: Sublingual/i,id);
     assert.match(stdout,/2[,.]5\s*mg\s*\/\s*ml/i,id);
     assert.match(stdout,/Embalagem: [^\n]*20\s*ml/i,id);
-    assert.match(stdout,/Fabricante: Eurofarma/i,id);
+    if (id === 'drogariasaopaulo') assert.match(stdout,/Fabricante não confirmado.*Biolab e Eurofarma/i,id);
+    else assert.match(stdout,/Fabricante: Eurofarma/i,id);
     assert.match(stdout,/Princípios ativos: [^\n]*tansulosina/i,id);
     assert.match(stdout,/Precisa de receita\? [^\n]*A farmácia retém\? [^\n]*Qual receituário\?/i,id);
     assert.doesNotMatch(stdout,/R\$|\bSKU\b|\bCEP\b/iu,id);

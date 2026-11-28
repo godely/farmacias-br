@@ -1,6 +1,6 @@
 {
   "name": "farmacias-br",
-  "version": "0.5.30",
+  "version": "0.5.31",
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.js"
@@ -11,9 +11,9 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@sentry/core": "10.78.0",
-    "drogariasaopaulo-cli": "https://codeload.github.com/godely/drogariasaopaulo-cli/tar.gz/330d6b025557db176d084762828cb6a9d0d4e85a",
-    "drogasil-cli": "https://codeload.github.com/godely/drogasil-cli/tar.gz/343018e327260e8201a44b3e7f7a054b47b972bd",
-    "paguemenos-cli": "https://codeload.github.com/godely/paguemenos-cli/tar.gz/84885b4f833c97cd520468a0ff28ed1958dacbea",
+    "drogariasaopaulo-cli": "https://codeload.github.com/godely/drogariasaopaulo-cli/tar.gz/c8682f1efcfa498b35aa3a631298b43633cb4b9e",
+    "drogasil-cli": "https://codeload.github.com/godely/drogasil-cli/tar.gz/84b90b79a6c7cdf8067f3d76a28dbb16d24711dc",
+    "paguemenos-cli": "https://codeload.github.com/godely/paguemenos-cli/tar.gz/5901f16ca2f6b2c8e09ca7c89684f7f88cf7a945",
     "zod": "^4.0.0"
   },
   "description": "Brazilian pharmacy catalogs, local offers and reported stock",
