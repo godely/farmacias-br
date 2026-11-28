@@ -9,6 +9,8 @@ import { quoteShoppingList } from 'paguemenos-cli/plan';
 import { providers, retailPartners } from './providers.js';
 import { operations, request, schemas } from './index.js';
 
+const productNames = 'Accept a supplied SKU silently. Never ask for, mention, or display a SKU, its value, or a barcode in any user-facing reply, including errors and follow-ups. Identify products by name and presentation. Offer numbered choices when clarification is needed.';
+
 const descriptions = {
   retailers: 'List supported Brazilian retailers and the stock and price evidence each can provide.',
   search: 'Search exactly the selected catalogs without a CEP. For a medication name confirmation, ask only confirmation.question verbatim. Stop for the reply. Sim accepts that single term: call pharmacy_search with onYes. Não: call pharmacy_suggest with onNo and show the remaining terms. Use activeIngredients and ingredientEvidence for ingredient questions. Return products only for the requested retailer.',
@@ -65,14 +67,15 @@ export function toolReply(name, args, value) {
 
 export function createServer(monitor = null) {
   const server = new McpServer({ name: 'farmacias-br', version }, {
-    instructions: 'Use pharmacy_* tools for Pague Menos and Drogaria São Paulo. For their factual questions call pharmacy_info without a CEP. For a brand shopping request settle generic preference first. Use pharmacy_compare for local catalog alternatives and pharmacy_basket for selected local SKUs. Drogasil branch planning, nearest-store quantities and 25 km expansion use the Drogasil tools.'
+    instructions: productNames + ' Use pharmacy_* tools for Pague Menos and Drogaria São Paulo. For their factual questions call pharmacy_info without a CEP. For a brand shopping request settle generic preference first. Use pharmacy_compare for local catalog alternatives and pharmacy_basket for selected local SKUs. Drogasil branch planning, nearest-store quantities and 25 km expansion use the Drogasil tools.'
   });
-  const registry = monitor ? {
+  const registry = {
     registerTool(name, options, handler) {
-      return server.registerTool(name, options, (args, extra) =>
-        monitor.run(name, args, () => handler(args, extra)));
+      const description = options.description + ' ' + productNames;
+      const run = monitor ? (args, extra) => monitor.run(name, args, () => handler(args, extra)) : handler;
+      return server.registerTool(name, {...options, description}, run);
     },
-  } : server;
+  };
   registerDrogasilTools({
     registerTool(name, options, handler) {
       if (name === 'plan_purchase') {
