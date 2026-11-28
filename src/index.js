@@ -20,7 +20,8 @@ const zipcode = z.string().trim().regex(/^\d{5}-?\d{3}$/).refine(value => !/^0+-
 const coordinates = z.strictObject({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180) });
 const location = { zipcode: zipcode.optional(), coordinates: coordinates.optional() };
 const withLocation = shape => z.strictObject({ ...shape, ...location })
-  .refine(value => Boolean(value.zipcode || value.coordinates), 'Informe o CEP ou as coordenadas');
+  .refine(value => Boolean(value.zipcode || value.coordinates), 'Informe o CEP ou as coordenadas')
+  .refine(value => !(value.zipcode && value.coordinates), 'Informe apenas uma origem');
 const query = z.string().trim().min(1).max(150);
 export const schemas = {
   plan: purchaseSchema,
@@ -42,9 +43,9 @@ export const schemas = {
     .refine(v=>!v.expandSearch || (!v.store && Boolean(v.zipcode || v.coordinates)), 'Ampliar exige localização e busca entre lojas')
     .refine(v=>!v.store || Boolean(v.zipcode || v.coordinates),'Informe a localização para escolher a filial')
     .refine(v=>!(v.zipcode && v.coordinates),'Informe apenas uma origem'),
-  basket: z.strictObject({retailer:partner, zipcode, items:z.array(z.strictObject({sku,
+  basket: withLocation({retailer:partner, items:z.array(z.strictObject({sku,
     sellerId:z.string().trim().min(1).max(100).optional(), quantity:z.number().int().min(1).max(1000).default(1)})).min(1).max(20)}),
-  baskets: z.strictObject({retailers:selection,zipcode,items:z.array(z.strictObject({gtin:z.string().refine(validGtin),quantity:z.number().int().min(1).max(1000).default(1),sellers:z.partialRecord(retailer,z.string()).optional()})).min(1).max(20)}),
+  baskets: withLocation({retailers:selection,items:z.array(z.strictObject({gtin:z.string().refine(validGtin),quantity:z.number().int().min(1).max(1000).default(1),sellers:z.partialRecord(retailer,z.string()).optional()})).min(1).max(20)}),
   info: z.strictObject({retailer:retailer.optional(), retailers:selection.optional(), scope:z.enum(['catalog','brazil']).default('catalog'), queries:z.array(query).min(1).max(10),
     page:z.number().int().min(1).max(100).default(1), limit:z.number().int().min(1).max(50).default(20)})
     .refine(args => Boolean(args.retailer) !== Boolean(args.retailers), 'Selecione a rede ou as redes para a consulta'),
@@ -55,7 +56,6 @@ export const schemas = {
   read_snapshot: z.strictObject({runId:z.string().uuid(), offset:z.number().int().min(0).default(0), limit:z.number().int().min(1).max(1000).default(20)}),
   stock: withLocation({ retailer, sku, quantity: z.number().int().min(1).max(1000).optional(),
     includeAll:z.boolean().optional(), expandSearch:z.boolean().optional(), maxBranches:z.number().int().min(3).max(30).optional() })
-    .refine(v=>!(v.zipcode && v.coordinates),'Informe apenas uma origem')
     .refine(v=>!v.maxBranches || !!v.zipcode,'O limite de filiais exige CEP')
     .refine(v=>!(v.includeAll && v.quantity != null),'Escolha entre todas as lojas e uma quantidade mínima'),
   prices: withLocation({ query, retailer: retailer.optional().describe('Retailer owning the numeric SKU in query'),
@@ -227,8 +227,7 @@ export async function getStock(args, sources = providers) {
 }
 
 export async function comparePrices(args, { compare = compareRetailPrices, sources = providers } = {}) {
-  const { query, zipcode, retailer, retailers = retailerIds, includeGenerics } = schemas.prices.parse(args);
-  if (!zipcode) return { status: 'requires_cep', reason: 'Os serviços de entrega e retirada verificam o CEP.' };
+  const { query, zipcode, coordinates, retailer, retailers = retailerIds, includeGenerics } = schemas.prices.parse(args);
   let reference = query;
   if (retailer) {
     const product = await getProduct({ retailer, sku: query }, sources);
@@ -240,7 +239,7 @@ export async function comparePrices(args, { compare = compareRetailPrices, sourc
   const named = !retailer && !/^\d+$/.test(query);
   let result;
   try {
-    result = await compare(reference, { zipcode, retailers: retailers.filter(id=>id!=='drogasil').map(id=>sources[id]), includeDrogasil:retailers.includes('drogasil'), includeGenerics });
+    result = await compare(reference, { zipcode, coordinates, retailers: retailers.filter(id=>id!=='drogasil').map(id=>sources[id]), includeDrogasil:retailers.includes('drogasil'), includeGenerics });
   } catch (error) {
     if (!named) throw error;
     result = { status: 'source_failed', issues: [{ retailer: 'Drogasil', status: 'reference_lookup_failed' }] };

@@ -1,6 +1,6 @@
 # Farmácias BR
 
-Uma API para consultar Drogasil, Pague Menos e Drogaria São Paulo. A mesma consulta pode ser feita pelo terminal, por HTTP e por clientes MCP. O CEP vem de quem consulta. Cada rede confirma a disponibilidade na área que atende.
+Uma API para consultar Drogasil, Pague Menos e Drogaria São Paulo. A mesma consulta pode ser feita pelo terminal, por HTTP e por clientes MCP. A pessoa pode compartilhar um CEP ou suas coordenadas. Cada rede confirma a disponibilidade na área que atende.
 
 Para buscar uma caixa perto de você nas três redes, use, por exemplo, `farmacias plan "ibuprofeno 600 mg 20 comprimidos" --cep "$CEP"`. Para escolher uma rede, acrescente `--retailer paguemenos`. Para escolher duas, use `--retailers drogasil,drogariasaopaulo`. No plugin, pergunte “Onde eu acho ibuprofeno perto de mim?” e escolha a apresentação quando o assistente perguntar. Na resposta, a Drogasil informa estoque da filial. As outras duas redes confirmam a retirada para a quantidade solicitada.
 
@@ -18,7 +18,7 @@ farmacias stock 81128 --retailer drogasil --cep "$CEP"
 farmacias prices 81128 --retailer drogasil --cep "$CEP"
 ```
 
-Cada SKU pertence a uma rede. A comparação entre redes valida o código de barras e a apresentação antes de ordenar as ofertas pelo preço. O resultado separa valores verificados para o CEP de ofertas de vitrine. Frete e descontos de programas pessoais podem alterar o total. A busca no catálogo e a consulta de informações de um produto funcionam sem CEP.
+Cada SKU pertence a uma rede. A comparação entre redes valida o código de barras e a apresentação antes de ordenar as ofertas pelo preço. O resultado separa valores verificados para a localização informada de ofertas de vitrine. Frete e descontos de programas pessoais podem alterar o total. A busca no catálogo e a consulta de informações de um produto funcionam sem CEP.
 
 Na Pague Menos e na Drogaria São Paulo, uma busca por nome incompleto ou com erro pode pedir confirmação. O MCP devolve uma proposta e a pergunta “Você quis dizer …?”. Após “sim”, o cliente chama `pharmacy_search` com `confirmation.onYes`. Após “não”, chama `pharmacy_suggest` com `confirmation.onNo` para mostrar as outras sugestões. Se a pessoa pedir a lista completa, envie `listAll: true` a `pharmacy_suggest`. O endpoint `POST /api/v1/suggest` e a CLI também permitem consultar os termos. Cada produto da busca da Pague Menos inclui os princípios ativos informados pelo catálogo em `activeIngredients`. Uma lista vazia indica informação ausente.
 
@@ -28,7 +28,7 @@ A busca usa o vocabulário DCB de julho de 2026 e o resolvedor de princípios at
 | Rede | Evidência de disponibilidade |
 |---|---|
 | Drogasil | Quantidade reportada por filial, distância e alcance da busca. O preço de catálogo é de referência. |
-| Pague Menos e Drogaria São Paulo | Simulação de atendimento do CEP por SKU e vendedor, com entrega ou retirada quando informada. A quantidade consultada é o pedido simulado. |
+| Pague Menos e Drogaria São Paulo | Simulação de atendimento por CEP ou coordenadas, SKU e vendedor, com entrega ou retirada quando informada. A quantidade consultada é o pedido simulado. |
 
 ## Biblioteca, HTTP e MCP
 
@@ -73,7 +73,7 @@ Em 27 de novembro de 2026, verificamos uma apresentação de paracetamol em um C
 
 Repetimos a comparação nas 27 capitais e em Parintins (AM), Petrolina (PE), Catalão (GO), Viçosa (MG) e Lages (SC). Para a mesma apresentação, pelo menos uma rede confirmou uma oferta em cada um dos 32 CEPs. Pague Menos confirmou em 31 e Drogaria São Paulo em 19. São observações de uma caixa por CEP na data do ensaio.
 
-A consulta de estoque da Drogasil também aceita `--lat` e `--lon` ou um objeto JSON `coordinates` com `latitude` e `longitude`. Os parceiros também verificam atendimento usando coordenadas na consulta de estoque. A comparação de preços por área usa CEP. Quando o catálogo de referência não identifica um nome, a API procura candidatos nos demais catálogos para que a pessoa escolha uma apresentação.
+A consulta de estoque da Drogasil também aceita `--lat` e `--lon` ou um objeto JSON `coordinates` com `latitude` e `longitude`. Os parceiros também verificam atendimento usando coordenadas na consulta de estoque. A comparação de preços e a cotação da cesta inteira aceitam a mesma origem. Por exemplo, use `farmacias prices paracetamol --lat "$LAT" --lon "$LON"` para reutilizar coordenadas compartilhadas. Quando o catálogo de referência não identifica um nome, a API procura candidatos nos demais catálogos para que a pessoa escolha uma apresentação.
 
 A resposta de preços inclui as modalidades que cada rede confirmou, taxas informadas e identificação e endereço dos pontos de retirada. Uma opção de retirada confirma o atendimento simulado para aquela quantidade. Para repetir o ensaio local de concorrência, rejeição de entradas e persistência de mil produtos, execute `node scripts/stress.mjs` na cópia de desenvolvimento. O ensaio usa o serviço em loopback e um catálogo sintético.
 
@@ -115,7 +115,7 @@ Para conferir a confirmação de nomes nos três executáveis e verificar o prin
 
 Use `farmacias prices GTIN --cep CEP --retailers paguemenos,drogariasaopaulo` para restringir as ofertas às redes escolhidas. A opção `--retailer` em preços identifica o dono de um SKU local. Para uma cesta inteira use `farmacias baskets GTIN:2 OUTRO_GTIN:1 --cep CEP --retailers paguemenos,drogariasaopaulo`. As mesmas consultas estão disponíveis como `pharmacy_prices` e `pharmacy_baskets`.
 
-Para comparar as mesmas embalagens nas sete combinações de redes pelo CLI e pelo MCP, execute `node scripts/check-selected-retailers.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"`. A comparação local de apresentações aceita uma origem opcional em `pharmacy_compare`. Para cestas por nome, `plan_purchase` aceita o identificador da rede em `retailer`. A consulta conjunta da Pague Menos e da Drogaria São Paulo confirma quantidades para retirada ou entrega. O estoque físico por filial permanece desconhecido.
+Para comparar as mesmas embalagens nas sete combinações de redes pelo CLI e pelo MCP, execute `node scripts/check-selected-retailers.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"`. Para repetir a mesma matriz com coordenadas, use `node scripts/check-selected-retailers.mjs --coordinates "$LAT_A,$LON_A" "$LAT_B,$LON_B"`. A comparação local de apresentações aceita uma origem opcional em `pharmacy_compare`. Para cestas por nome, `plan_purchase` aceita o identificador da rede em `retailer`. A consulta conjunta da Pague Menos e da Drogaria São Paulo confirma quantidades para retirada ou entrega. O estoque físico por filial permanece desconhecido.
 
 Para uma lista por nome em várias redes, `farmacias plan` e `plan_purchase` também retornam `crossRetailerPlans`. Cada plano completo informa o que pegar em cada endereço, o número de paradas e o total estimado dos produtos. A comparação considera os planos verificados, com estoque informado pela Drogasil e retirada oferecida pelas outras redes. O trajeto estimado sai da origem, visita as filiais e volta à origem. As distâncias são em linha reta. Se faltarem coordenadas, o total do trajeto fica desconhecido. Taxas ficam fora do subtotal.
 
