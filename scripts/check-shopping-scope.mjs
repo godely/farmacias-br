@@ -27,7 +27,8 @@ function verify(data, expected, singleton, surface) {
     assert.equal(row.tables.length,1,row.retailerId);
     if (row.retailerId === 'drogasil') {
       const table=row.tables[0];
-      assert.ok(row.coverage?.checkedStores>0 || (['presentation_options','ambiguous'].includes(table.status) && table.candidates.length>1));
+      assert.equal(table.matchBasis,'direct_requested_pack');
+      assert.ok(row.coverage?.checkedStores>0,'Drogasil did not check branch inventory');
     } else {
       assert.equal(row.stockEvidence,'fulfillment_quote');
       assert.ok(row.tables[0].choices.length);
