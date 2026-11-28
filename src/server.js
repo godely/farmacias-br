@@ -28,8 +28,8 @@ const descriptions = {
   search: 'Search exactly the selected catalogs without a CEP. For nameChoice ask its question, wait for the selected name and pass that option’s onSelect. For a medication name confirmation, ask only confirmation.question verbatim. Stop for the reply. Sim accepts that single term: call pharmacy_search with onYes. Não: call pharmacy_suggest with onNo and show the remaining terms. Use activeIngredients and ingredientEvidence for ingredient questions. Return products only for the requested retailer.',
   suggest: 'Suggest search terms for the selected pharmacy or pharmacies. Always supply the requested retailer. Return suggestions without products or CEP. Ask only confirmation.question and wait. Sim: call pharmacy_search with onYes. Não: call this tool with onNo, list the remaining terms, and wait for a selection. If none remain, ask for another spelling. Use listAll only on an explicit request for all suggestions.',
   compare: 'Compare presentations in the selected partner catalog. For prices alone omit location. For local availability pass the shared CEP or coordinates in this call. After settling brand/generic preference, show the requested product first, then verified generics. Report checkout pickup and delivery evidence. For “na minha loja mais próxima” pass store=nearest to identify the directory branch and check its pickup offer exclusively. closestQuotedPickup ranks the returned pickup options with known distances. Exact branch quantity remains unknown.',
-  basket: 'Check the whole selected basket at one partner retailer in one call. Supply exact local SKUs, quantities and shared CEP. For multiple sellers ask which to use. Pague Menos and São Paulo use a single fulfillment simulation. Only commonPickupPoints apply to all items. A fewest-stores or shortest-route plan is available for Drogasil only.',
-  baskets: 'Compare whole baskets of the same GTINs and quantities at exactly the selected retailers. Send the whole basket once. Report complete CEP-verified product subtotals separately from Drogasil catalog estimates, and report missing items and fees.',
+  basket: 'Quote an explicitly identified basket at one partner using known retailer product and seller identifiers, quantities and a shared CEP. Only commonPickupPoints apply to all lines. For a shopper requesting products by name, a retained selection or a pickup itinerary, call plan_purchase directly.',
+  baskets: 'Compare an explicitly barcode-defined basket at exactly the selected retailers. For named shopping lists and route planning, call plan_purchase directly. Send the whole basket once. Report complete CEP-verified product subtotals separately from Drogasil catalog estimates, and report missing items and fees.',
   stores: 'Page through the named retailer’s branch directory. Pague Menos needs a shared CEP or coordinates. Return directory distances when available and published Pague Menos opening hours. Directory membership alone does not establish shelf stock or pickup availability.',
   info: 'Get only medication facts from the named retailer by names or SKUs in one call, without a location or price/stock inquiry. Use the verified strength paired with its presentation. Cite presentationSource for a corroborated liquid denominator. Say via não confirmada when route evidence conflicts. Answer the facts requested. Give prescription details when asked. Exact controlled forms require prescription.form and its official prescription.rule link. Missing labels are unconfirmed. Pages refer to catalog search.',
   snapshot: 'Save catalog observations for the requested pharmacies. Supply retailer for one run, or retailers for separate runs in selection order. maxItems applies per pharmacy. Read each run with pharmacy_read_snapshot. Catalog availability describes online offers.',
@@ -134,7 +134,11 @@ export function shoppingReply(response) {
     guidance.retailerGuidance = 'Responda pelas redes consultadas. Se outra rede tiver retirada, estoque ou resultado pendente, uma busca sem estoque na Drogasil sozinha não justifica ampliar o raio.';
   }
   const itinerary = itineraryText(data.crossRetailerPlans ?? data.pickupPlans ?? (outcomes.length === 1 ? outcomes[0].pickupPlans : undefined));
-  const notes = [itinerary,...Object.values(guidance)].filter(Boolean);
+  if (itinerary && !data.nextAction) {
+    guidance.nextAction = 'answer_with_plan';
+    guidance.itineraryGuidance = 'Informe onde retirar cada item e o total do plano já verificado. A consulta está concluída. Preserve os avisos de cobertura parcial.';
+  }
+  const notes = [itinerary,...Object.entries(guidance).filter(([key]) => key !== 'nextAction').map(([,text]) => text)].filter(Boolean);
   if (!notes.length) return response;
   const structuredContent = { ...data, ...guidance };
   return { ...response, structuredContent, content: [
@@ -145,7 +149,7 @@ export function shoppingReply(response) {
 
 export function createServer(monitor = null) {
   const server = new McpServer({ name: 'farmacias-br', version }, {
-    instructions: purchaseDescription + ' ' + productNames + ' ' + pickupGuidance + ' Use pharmacy_* tools for Pague Menos and Drogaria São Paulo. For their factual questions call pharmacy_info without a CEP. For a brand shopping request settle generic preference first. Use pharmacy_compare for local catalog alternatives and pharmacy_basket for selected local SKUs. For fixed-store shopping use plan_purchase with store=nearest for any chain. Drogasil reports shelf quantities and supports 25 km expansion.'
+    instructions: purchaseDescription + ' ' + productNames + ' ' + pickupGuidance + ' Use pharmacy_* tools for Pague Menos and Drogaria São Paulo. For their factual questions call pharmacy_info without a CEP. For a brand shopping request settle generic preference first. A named shopping list or a returning shopper’s selection goes straight to plan_purchase. Use the returned itinerary to answer. For fixed-store shopping use plan_purchase with store=nearest for any chain. Drogasil reports shelf quantities and supports 25 km expansion.'
   });
   const registry = {
     registerTool(name, options, handler) {

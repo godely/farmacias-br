@@ -163,7 +163,7 @@ export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:
 }
 
 export const purchaseDescription =
-  'For local shopping and stock use plan_purchase once for the entire named basket after generic preferences are settled. ' +
+  'For local shopping and stock use plan_purchase once for the entire named basket after generic preferences are settled. Send the names as given, including brand and presentation. This tool resolves all products and obtains the checkout quotes itself. Make it the first shopping call, including for a refresh or an item preference from a previous table. ' +
   'No pharmacy named or “qualquer uma” means all three: omit retailer and retailers. Use retailer only for a chain the shopper actually chose, and retailers for a chosen group. ' +
   'Keep that scope through clarification of pack size, dose, and generic preferences. A catalog used for clarification does not set the shopping scope. ' +
   'For “na minha loja mais próxima” set store to nearest and check one directory branch per selected chain. Use fixedStore for the branch identity and pickupAtStore for the outcome. A missing pickup offer at that store does not establish zero units. Once a fixed branch is checked, answer for it and finish. Check additional branches only if the shopper asks for them. For the nearest place offering pickup omit store. ' +
