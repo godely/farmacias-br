@@ -17,6 +17,8 @@ for (const [i, retailer] of ['drogasil','paguemenos','drogariasaopaulo'].entries
     assert.equal(result.code ?? 0, expected, retailer + ' ' + args[0] + ': ' + result.stderr);
     return {data:JSON.parse(result.stdout), message:result.stderr.trim()};
   }
+  const ambiguous = await invoke(['search','dexa 4 mg'], 3);
+  assert.ok(ambiguous.message.includes('dexador 4 mg') && ambiguous.message.includes('dexametasona 4 mg'));
   const expected = 'Você quis dizer prednisona ou prednisolona?';
   for (const args of [
     ['search','predniso'], ['compare','predniso'], ['info','Rivotril','predniso'],
@@ -38,5 +40,5 @@ for (const [i, retailer] of ['drogasil','paguemenos','drogariasaopaulo'].entries
     for (const row of rows) assert.ok(row.activeIngredients?.some(a =>
       a.toLowerCase().split(/[^\p{L}]+/u).includes(name)), retailer + ': ' + row.name);
   }
-  console.log(retailer + ': 8 checks passed');
+  console.log(retailer + ': 9 checks passed');
 }

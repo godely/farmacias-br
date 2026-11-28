@@ -251,5 +251,14 @@ export async function request(operation, input) {
     const pending = await clarifyLookup('pharmacy_' + operation, args, scope);
     if (pending) return pending;
   }
-  return operations[operation](args);
+  const result = await operations[operation](args);
+  if (operation === 'suggest' && !args.listAll && !args.declinedTerm && result.suggestions.length) {
+    const choices = await nameChoices(args.query);
+    if (choices.length > 1) {
+      const scope = args.retailers ? {retailers:args.retailers} : {retailer:result.retailerId};
+      return {...result, ...choiceFollowup(choices, 'pharmacy_search',
+        query => ({...scope, query, limit:args.limit}), {...scope, query:args.query})};
+    }
+  }
+  return result;
 }
