@@ -25,6 +25,16 @@ function needsPresentationChoice(table) {
   return ['ambiguous', 'presentation_options'].includes(table.status) && table.candidates?.length > 1;
 }
 
+function referenceChoiceTables(result) {
+  return (result.tables ?? [result]).filter(table => ['choose_reference','ambiguous'].includes(table.status) &&
+    table.referenceCatalog === 'drogasil' && table.presentationChoices?.length);
+}
+
+function unverifiedEquivalents(result) {
+  return (result.tables ?? [result]).filter(table => table.status === 'no_match' &&
+    table.requestedBrand?.status === 'no_exact_catalog_match');
+}
+
 const descriptions = {
   retailers: 'List supported Brazilian retailers and the stock and price evidence each can provide.',
   search: 'Search exactly the selected catalogs without a CEP. For nameChoice ask its question, wait for the selected name and pass that option’s onSelect. For a medication name confirmation, ask only confirmation.question verbatim. Stop for the reply. Sim accepts that single term: call pharmacy_search with onYes. Não: call pharmacy_suggest with onNo and show the remaining terms. Use activeIngredients and ingredientEvidence for ingredient questions. Return products only for the requested retailer.',
@@ -184,6 +194,11 @@ export function shoppingReply(response) {
   const wider = data.expandedSearch ?? data.purchase?.expandedSearch;
   if (wider) guidance.expandedGuidance = expandedGuidance(wider);
   const outcomes = data.results ?? [data];
+  const basket = data.crossRetailerPlans ?? data.pickupPlans ?? (outcomes.length === 1 ? outcomes[0].pickupPlans : undefined);
+  const completePlan = basket?.status === 'complete' && basket.plans?.length > 0;
+  const referenceChoices = outcomes.flatMap(row => referenceChoiceTables(row).map(table =>
+    [retailerNames[row.retailerId], table.query, table.presentationChoices.join(' / ')].filter(Boolean).join(' · ')));
+  const awaitingPack = referenceChoices.length > 0;
   if (!wider && data.storeScope !== 'fixed_branch' && outcomes.some(row => !row.fixedStore && row.planningScope === 'one_pack_alternatives')) {
     guidance.pickupDisplayGuidance = 'Para uma pergunta comum de compra, mostre cada apresentação uma vez, somente na filial mais próxima com retirada oferecida para a quantidade pedida. Se a distância estiver incompleta, diga que a filial mais próxima ficou sem confirmação. Liste outras filiais ou entrega quando a pessoa pedir. Uma opção cabe em uma frase.';
     const reply = singlePickupReply(data);
@@ -208,25 +223,33 @@ export function shoppingReply(response) {
   if (outcomes.some(row => row.tables?.some(t => t.status === 'requested_brand_not_found'))) {
     guidance.manufacturerGuidance = 'Diga “Não encontrei essa apresentação do fabricante no catálogo consultado”. Preserve a preferência nesse item. Use a URL apenas como link da fonte.';
   }
-  if (outcomes.some(row => row.tables?.some(needsPresentationChoice))) guidance.presentationGuidance = presentationGuidance;
+  if ((!completePlan && awaitingPack) || outcomes.some(row => row.tables?.some(needsPresentationChoice))) guidance.presentationGuidance = presentationGuidance;
+  if (awaitingPack) guidance.referencePresentationGuidance = 'Apresentações documentadas no catálogo de referência da Drogasil: ' +
+    referenceChoices.join('. ') + '. Nesta etapa, a disponibilidade dessas apresentações na rede indicada está em aberto. ' +
+    (completePlan ? 'Mostre primeiro o plano completo confirmado. Ofereça esclarecer a apresentação na outra rede se a pessoa quiser compará-la.' :
+      'Após a escolha, consulte o nome com a apresentação escolhida na mesma rede, preservando os demais itens, preferências, quantidades, filial e origem.');
+  const unverified = outcomes.flatMap(row => unverifiedEquivalents(row).map(table =>
+    [retailerNames[row.retailerId], table.query ?? table.requestedBrand.name].filter(Boolean).join(' · ')));
+  if (unverified.length) guidance.equivalenceGuidance = unverified.join('. ') +
+    ' — a busca não encontrou a caixa da marca nessa rede nem confirmou um genérico com a mesma apresentação. O estoque ficou sem confirmação.';
   if (data.storeScope !== 'fixed_branch' && outcomes.some(row =>
     row.lowestPricedPickup || row.tables?.some(table => table.lowestPricedStockedOption) ||
     row.purchase?.tables?.some(table => table.lowestPricedStockedOption))) guidance.priceGuidance = priceGuidance;
-  if (outcomes.some(row => row.fixedStore)) {
+  if (!awaitingPack && outcomes.some(row => row.fixedStore)) {
     guidance.fixedStoreGuidance = 'A consulta à filial escolhida terminou. Responda agora sobre essa filial e encerre o turno. Verifique outra loja apenas se a pessoa solicitar essa busca. Não faça outra chamada para procurar uma alternativa por iniciativa própria. Use o nome e endereço em fixedStore.branch. Para offered, diga “Segundo o site, dá para retirar a quantidade pedida nessa loja”. Para not_offered, diga que o site não ofereceu retirada nessa loja. Para unconfirmed ou lookup_failed, informe que a retirada ficou sem confirmação. Se faltarem distâncias, limite a afirmação de proximidade às lojas com distância conhecida.';
   }
-  if (!wider && data.checkedRetailers && data.scope === 'whole_basket_per_retailer') {
+  if (!awaitingPack && !wider && data.checkedRetailers && data.scope === 'whole_basket_per_retailer') {
     guidance.retailerGuidance = data.coverage?.canExpand
       ? 'A consulta local confirmou zero em todas as redes selecionadas. Informe a cobertura e pergunte se a pessoa quer ampliar para 25 km. Aguarde a resposta.'
       : 'Responda com os resultados locais das redes selecionadas e encerre a busca. Informe a disponibilidade confirmada e qualquer informação pendente.';
   }
-  const basket = data.crossRetailerPlans ?? data.pickupPlans ?? (outcomes.length === 1 ? outcomes[0].pickupPlans : undefined);
   const itinerary = itineraryText(basket);
   if (itinerary && !data.nextAction) {
     guidance.nextAction = basket.partialBasket ? 'answer_with_partial_basket' : 'answer_with_plan';
     guidance.itineraryGuidance = 'Informe a filial e o endereço por item e o subtotal estimado. Quando houver uma comparação calculada, explique a economia, a mudança de paradas e a diferença de percurso em linha reta. Em uma cesta parcial, indique o que ficou pendente por rede. A consulta está concluída. Preserve os avisos de cobertura parcial.';
   }
   if (onlyCatalogMisses && !itinerary && !data.nextAction) guidance.nextAction = 'answer_with_catalog_miss';
+  if (awaitingPack && !completePlan) guidance.nextAction = 'clarify_presentation';
   const notes = [itinerary,...Object.entries(guidance).filter(([key]) => key !== 'nextAction').map(([,text]) => text)].filter(Boolean);
   if (!notes.length) return response;
   const structuredContent = { ...data, ...guidance };
@@ -289,7 +312,9 @@ export function createServer(monitor = null) {
       annotations: { readOnlyHint: name !== 'snapshot', destructiveHint: false, openWorldHint: !['retailers','read_snapshot'].includes(name) } }, async args => {
       const value = await request(name, args);
       const response = toolReply(name,args,value);
-      return value.expandedSearch || value.purchase?.expandedSearch ? shoppingReply(response) : response;
+      const referenceEvidence = name === 'compare' && (value.results ?? [value]).some(row =>
+        referenceChoiceTables(row).length || unverifiedEquivalents(row).length);
+      return referenceEvidence || value.expandedSearch || value.purchase?.expandedSearch ? shoppingReply(response) : response;
     });
   }
   return server;

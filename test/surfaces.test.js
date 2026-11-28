@@ -262,6 +262,46 @@ test('directory outage, unknown item and insufficient local evidence have separa
   }
 });
 
+test('reference-only choices survive a fixed-store lookup and a partial cross-chain basket', () => {
+  const names = ['Exemplo 1 mg 30 comprimidos','Exemplo 2 mg 30 comprimidos'];
+  const table = {query:'Exemplo',status:'choose_reference',referenceCatalog:'drogasil',presentationChoices:names,choices:[],verifiedChoices:[]};
+  const fixed = {retailerId:'paguemenos',fixedStore:{status:'identified',branch:{name:'Filial do Centro'}},tables:[table]};
+  const scoped = shoppingReply(toolReply('plan_purchase',{store:'nearest'},fixed));
+  assert.equal(scoped.structuredContent.nextAction,'clarify_presentation');
+  assert.equal(scoped.structuredContent.storeScope,'fixed_branch');
+  assert.equal(scoped.structuredContent.fixedStoreGuidance,undefined);
+  for (const name of names) assert.ok(scoped.content[0].text.includes(name));
+  assert.deepEqual(scoped.structuredContent.tables[0].choices,[]);
+  const pickup = {objective:'both',stopCount:1,totalBRL:8,stops:[{retailerId:'drogariasaopaulo',name:'Filial da Estação',
+    pickups:[{name:'Outro medicamento',packs:1,unitPriceBRL:8,evidence:'quoted_pickup'}]}]};
+  for (const complete of [false,true]) {
+    const trip = complete ? {status:'complete',plans:[pickup]} : {status:'no_complete_plan_verified',plans:[],
+      partialBasket:{filledCount:1,requestedCount:2,plans:[pickup],unfilled:[]}};
+    const input = {results:[{retailerId:'paguemenos',tables:[table]},{retailerId:'drogariasaopaulo',tables:[{status:'matches'}]}],
+      checkedRetailers:['paguemenos','drogariasaopaulo'],scope:'whole_basket_per_retailer',crossRetailerPlans:trip};
+    const reply = shoppingReply(toolReply('plan_purchase',{},input));
+    assert.equal(reply.structuredContent.nextAction,complete ? 'answer_with_plan' : 'clarify_presentation');
+    assert.equal(reply.structuredContent.crossRetailerPlans,trip);
+    assert.match(reply.content[0].text,/Filial da Estação/);
+    assert.match(reply.content[0].text,/Outro medicamento/);
+    assert.match(reply.content[0].text,/catálogo de referência da Drogasil/);
+    assert.deepEqual(JSON.parse(reply.content[1].text),reply.structuredContent);
+  }
+});
+
+test('a missing equivalent after the shopper chooses a pack explains why stock is unknown', () => {
+  const table = {query:'Exemplo 2 mg 30 comprimidos',status:'no_match',requestedBrand:{name:'Exemplo',status:'no_exact_catalog_match'},choices:[]};
+  const plan = {retailerId:'paguemenos',tables:[table]};
+  for (const outcome of [plan,{retailerId:'paguemenos',...table}]) {
+    const reply = shoppingReply(toolReply('compare',{},outcome));
+    assert.match(reply.structuredContent.equivalenceGuidance,/Pague Menos.*Exemplo.*genérico com a mesma apresentação/);
+    assert.match(reply.content[0].text,/estoque ficou sem confirmação/);
+    assert.equal(reply.structuredContent.nextAction,undefined);
+  }
+  const failed = shoppingReply(toolReply('plan_purchase',{}, {...plan,tables:[{...table,status:'partial'}]}));
+  assert.equal(failed.structuredContent.equivalenceGuidance,undefined);
+});
+
 test('a broad counter question asks for one missing detail while preserving all catalog choices', () => {
   const names = ['Exemplo 750 mg 10 comprimidos', 'Exemplo 750 mg 20 comprimidos'];
   for (const table of [
