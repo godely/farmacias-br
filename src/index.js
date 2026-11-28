@@ -6,7 +6,7 @@ import { compareBaskets } from './baskets.js';
 import { retailerBasket, retailerComparison, catalogInfo, catalogType } from 'drogasil-cli/retailer-workflows';
 import { compareRetailPrices, getMedicationInfo, readSnapshot } from 'drogasil-cli';
 import { providers } from './providers.js';
-import { nameChoices, choiceFollowup } from './name-choices.js';
+import { nameChoices, choiceFollowup, clarifyLookup } from './name-choices.js';
 import { startSnapshots } from './snapshot-scopes.js';
 
 export const retailerIds = Object.keys(providers);
@@ -244,5 +244,11 @@ export const operations = { plan: planSelectedBaskets, retailers: listRetailers,
   read_snapshot: ({runId,...page}) => readSnapshot(runId,page) };
 export async function request(operation, input) {
   if (!Object.hasOwn(operations, operation)) throw new TypeError('Operação desconhecida');
-  return operations[operation](schemas[operation].parse(input));
+  const args = schemas[operation].parse(input);
+  if (['prices','compare','info'].includes(operation)) {
+    const scope = operation === 'prices' ? {retailers:args.retailers ?? retailerIds} : {retailer:args.retailer};
+    const pending = await clarifyLookup('pharmacy_' + operation, args, scope);
+    if (pending) return pending;
+  }
+  return operations[operation](args);
 }

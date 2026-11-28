@@ -74,3 +74,21 @@ test('a title can supply a missing ingredient while a conflicting catalog field 
   assert.deepEqual(hits.map(hit => hit.ingredientEvidence.source), ['retailer_title','retailer_field']);
   assert.deepEqual(hits.map(hit => hit.activeIngredients[0].toLowerCase()), ['prednisona','prednisona']);
 });
+
+test('an explicit choice resumes its originating tool and preserves other factual queries and location options', async () => {
+  const {clarifyLookup} = await import('../src/name-choices.js');
+  const queries = ['Rivotril', 'predniso'];
+  const clarify = async term => term === 'predniso' ? names : [];
+  for (const tool of ['get_medication_info','pharmacy_info','search_products','compare_products','pharmacy_prices','pharmacy_compare']) {
+    const info = tool.includes('info');
+    const args = info ? {queries, scope:'brazil'} : {query:'predniso', origin:{latitude:0, longitude:0}, includeGenerics:false};
+    const value = await clarifyLookup(tool, args, {retailer:'drogasil'}, clarify);
+    const reply = toolReply(tool, args, value).structuredContent;
+    assert.equal(reply.reply,'Você quis dizer prednisona ou prednisolona?');
+    assert.equal(reply.nextTool,tool);
+    assert.deepEqual(reply.nameChoice.options[0].onSelect, info ? {...args,queries:['Rivotril','prednisona']} : {...args,query:'prednisona'});
+    const one = await clarifyLookup(tool, args, {retailer:'drogasil'}, async term => term==='predniso' ? ['prednisona'] : []);
+    assert.deepEqual(one.confirmation.onNo,{query:'predniso',retailer:'drogasil',declinedTerm:'prednisona'});
+    assert.equal(one.confirmation.onYesTool,tool);
+  }
+});

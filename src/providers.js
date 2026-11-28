@@ -10,7 +10,7 @@ function catalogRow(hit) {
   const validLink = hit.url && new URL(hit.url, 'https://www.drogasil.com.br');
   return {
     retailer: 'Drogasil', sku: String(hit.sku), gtin: hit.eanCode ? String(hit.eanCode) : null,
-    name: hit.name, brand: hit.brand, type: info.type, facts: hit.details ?? {},
+    name: hit.name, brand: hit.brand, type: info.type, pack: info.pack, facts: hit.details ?? {},
     productUrl: validLink?.origin === 'https://www.drogasil.com.br' ? validLink.href : null,
     currentPrice: info.referencePriceBRL ?? null, listPrice: null, currency: 'BRL', inStock: null,
     priceScope: 'catalog_reference', observedAt: new Date().toISOString(),
@@ -27,25 +27,33 @@ const drogasil = {
     return (await medicationIntent(query)).suggestions.slice(0, limit);
   },
   async searchCatalog(query, page, limit) {
+    return (await this.searchCatalogPage(query, page, limit)).products;
+  },
+  async searchCatalogPage(query, page, limit) {
     const intent = await medicationIntent(query);
     const explicitForm = /\b(?:gotas?|comprimidos?|capsulas?|sublingual|efervescente|liberacao)\b/.test(intent.suffix);
-    if (!['ingredient', 'brand'].includes(intent.kind) && !explicitForm) return this.search(query, page, limit);
+    if (!['ingredient', 'brand'].includes(intent.kind) && !explicitForm) {
+      const raw = await searchProducts(query, {page:page - 1, hitsPerPage:limit});
+      return {products:raw.hits.map(catalogRow), pages:raw.nbPages};
+    }
     const name = await resolveMedication(query).catch(() => null);
     const options = {page: page - 1, hitsPerPage: limit};
     // Facets verify identity and leave every page available at the requested size.
     // Some DCB entries have no catalog facet. Verify their structured ingredients.
     const hasFacet = name?.kind === intent.kind && name.filters && !name.interpretation;
-    let hits;
+    let hits, pages;
     const checkPresentation = explicitForm || (hasFacet && intent.suffix);
     if (checkPresentation) {
       const result = await compareProducts(query, {resolveNames:true, includeGenerics:false, includeUnpriced:true});
       const matches = result.candidates ?? result.groups?.flat() ?? result.products ?? [];
+      pages = Math.ceil(matches.length / limit);
       hits = matches.slice((page - 1) * limit, page * limit);
     } else {
       const result = hasFacet ? await medicationSearch(query, options, name) : await searchProducts(query, options);
       hits = result.hits;
+      pages = result.nbPages;
     }
-    return hits.flatMap(hit => {
+    const products = hits.flatMap(hit => {
       const row = catalogRow(hit);
       const ingredients = (hit.details?.activeIngredients ?? []).map(item => item.description).filter(Boolean);
       const verified = verifiedRow(row, (checkPresentation || hasFacet) ? {...intent, suffix:''} : intent, {
@@ -53,6 +61,7 @@ const drogasil = {
       });
       return verified ? [verified] : [];
     });
+    return {products, pages};
   },
   async byGtin(gtin) {
     const {hits} = await searchProducts(gtin,{hitsPerPage:100});
