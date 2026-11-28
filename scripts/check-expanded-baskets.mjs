@@ -34,10 +34,10 @@ try {
   const endpoint=process.env.FARMACIAS_TEST_MCP_URL;
   await client.connect(endpoint ? new StreamableHTTPClientTransport(new URL(endpoint)) :
     new StdioClientTransport({command:process.execPath,args:[bin('server')]}));
-  for (let mask=1;mask<8;mask++) {
+  for (const [index,mask] of [1,1,2,3,4,5,6,7].entries()) {
     const retailers=all.filter((_,index)=>mask & (1<<index));
     for (const [surface,lookup] of [['CLI',cli],['MCP',mcp]]) {
-      const zipcode=origins[(mask-1)%2];
+      const zipcode=origins[index%2];
       const initial=await lookup(retailers,zipcode,false);
       assert.deepEqual(initial.checkedRetailers,retailers);
       assert.ok(initial.results.every(r=>r.status!=='source_failed'));
