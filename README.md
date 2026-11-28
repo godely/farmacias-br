@@ -86,7 +86,7 @@ A resposta de preços inclui as modalidades que cada rede confirmou, taxas infor
 | Marca e genéricos da mesma apresentação | Comparação no catálogo Drogasil | Equivalência do catálogo de referência e embalagem confirmada na rede |
 | Preço e atendimento local | Estoque por filial e preço de referência | Simulação por CEP ou coordenadas, SKU, vendedor e quantidade |
 | Cesta de vários produtos | Planejamento de paradas e percurso | Simulação conjunta, pontos de retirada comuns e subtotal dos produtos quando confirmado |
-| Diretório de lojas | Sim | Localizador por origem na Pague Menos e diretório nacional de filiais identificadas na Drogaria São Paulo |
+| Diretório de lojas | Sim | Pague Menos oferece levantamento nacional datado e localizador ao vivo por origem. Drogaria São Paulo oferece diretório nacional das filiais identificadas |
 | Consulta na filial mais próxima | Quantidade informada na filial | Retirada para a quantidade pedida na filial mais próxima do diretório com distância conhecida |
 | Ampliação consentida para 25 km | Sim | Cobertura física sem confirmação |
 | Snapshot com paginação de leitura | Sim | Sim, com ofertas por SKU |

@@ -41,3 +41,32 @@ test('preserves the single-retailer contract and rejects two origins, duplicate 
   for (const args of [{retailer:'drogasil',retailers:ids},{retailers:['drogasil','drogasil']},{},
     {retailers:ids,zipcode:'01001000',coordinates}]) assert.equal(schemas.stores.safeParse(args).success,false);
 });
+
+test('national survey keeps its date and coverage on each results page, and a shared origin uses live branches',async () => {
+  const calls=[];
+  const providers=sources(calls);
+  providers.paguemenos.directoryScope='national_observed';
+  providers.paguemenos.nationalDirectory=async () => {
+    calls.push(['paguemenos','survey']);
+    return {status:'checked',scope:'national_observed',observedAt:'2026-01-01T00:00:00Z',
+      order:'directory',coverage:{complete:null,uniqueStores:2},stores:rows};
+  };
+  for(let mask=1;mask<8;mask++) {
+    const retailers=ids.filter((_,i)=>mask & (1<<i));
+    calls.length=0;
+    const result=await storeDirectories({retailers,page:2,limit:1},providers);
+    assert.deepEqual(calls.map(([id])=>id),retailers);
+    const pm=result.results.find(g=>g.retailerId==='paguemenos');
+    if (pm) {
+      assert.equal(pm.observedAt,'2026-01-01T00:00:00Z');
+      assert.equal(pm.coverage.complete,null);
+      assert.equal(pm.total,2);
+      assert.deepEqual(pm.stores,[rows[1]]);
+    }
+  }
+  calls.length=0;
+  const local=await storeDirectories({retailer:'paguemenos',coordinates},providers);
+  assert.deepEqual(calls,[['paguemenos',coordinates]]);
+  assert.equal(local.scope,'near_origin');
+  assert.equal(local.observedAt,undefined);
+});
