@@ -24,7 +24,7 @@ test('records the failed basket line, ordinary zero stock, and the successful de
   } });
   const query = 'Segredo 2 mg 30 comprimidos de liberação imediata';
   const args = { items: [{query}, {query:'123456789'}], origin: {zipcode:'11111-111'} };
-  const result = {tables:[{status:'no_reference'}, {status:'no_stock', unavailable:[{name:'Segredo'}],rows:[]}]};
+  const result = {tables:[{status:'no_reference'}, {status:'no_stock', coverage:{allZero:true}, unavailable:[{name:'Segredo'}],rows:[]}]};
   assert.equal(await monitor.run('plan_purchase', args, async () => result), result);
   await monitor.run('plan_purchase', args, async () => ({status:'needs_generic_preference'}));
   await assert.rejects(monitor.run('pharmacy_stock', {retailer:'paguemenos', sku:'123456789'},
@@ -49,7 +49,7 @@ test('isolates a source failure from an uncovered area and handles missing SKU e
   assert.deepEqual(rows.map(r=>r.outcome),['ok','upstream_failure','outside_coverage']);
   assert.deepEqual(observations('get_products',{}, {products:[null,{sku:'42'}]}).map(r=>r.outcome),['lookup_miss','ok']);
   assert.equal(observations('find_nearby_stock',{sku:'7'},{scope:'nearest',nearestStore:{quantity:0}})[0].outcome,'zero_stock');
-  assert.equal(observations('pharmacy_stock',{sku:'7'},{offers:[{localStatus:'unavailable'}]})[0].outcome,'zero_stock');
+  assert.equal(observations('pharmacy_stock',{retailer:'paguemenos',sku:'7'},{offers:[{localStatus:'unavailable'}]})[0].outcome,'fulfillment_unavailable');
   assert.equal(createMonitoring(''),null);
 });
 test('a broken Sentry transport leaves real MCP results and error behavior intact', async () => {
@@ -67,4 +67,24 @@ test('a broken Sentry transport leaves real MCP results and error behavior intac
     await monitor.close();
     assert.equal(journal.length,2); assert.ok(warnings.length);
   } finally { await client.close(); await server.close(); }
+});
+
+test('tracks checkout and branch evidence independently without reporting a false physical zero', () => {
+  const args = {retailer:'paguemenos', sku:'12345678', quantity:3};
+  function check(branchInventory, checkout, expected) {
+    const rows = observations('pharmacy_stock', args, { offers:[{localStatus:checkout}], branchInventory });
+    assert.deepEqual(rows.map(r=>r.operation), ['stock','branch_inventory']);
+    assert.deepEqual(rows.map(r=>r.outcome), expected);
+    assert.ok(rows.every(r=>r.retailer==='paguemenos' && r.shape==='identifier'));
+    assert.doesNotMatch(JSON.stringify(rows), /12345678/);
+  }
+  const empty = {checkedStores:5, nearbyAllZero:true, unknownStores:0, unknownDistanceStores:0};
+  check({status:'source_failed'},'available',['ok','upstream_failure']);
+  check({status:'unknown'},'unavailable',['fulfillment_unavailable','stock_unknown']);
+  check({status:'unavailable',coverage:empty},'available',['ok','zero_stock']);
+  check({status:'unavailable',expanded:true,coverage:empty},'unavailable',['fulfillment_unavailable','no_qualifying_stock']);
+  check({status:'available',expanded:true,coverage:empty},'lookup_failed',['upstream_failure','ok']);
+  const drug = observations('pharmacy_stock',{retailer:'drogasil',sku:'7'},{
+    offers:[{localStatus:'available',coverage:{allZero:true},expandedSearch:{totalStockedStores:1}}]});
+  assert.equal(drug[0].outcome,'ok');
 });

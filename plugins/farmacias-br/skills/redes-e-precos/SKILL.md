@@ -41,7 +41,7 @@ Para localizar filiais, consulte `pharmacy_stores`. Pague Menos precisa de um CE
 
 Para comparar as apresentações de uma rede com retirada ou entrega, envie o CEP ou as coordenadas compartilhadas na própria chamada a `pharmacy_compare`. Mostre a disponibilidade informada para cada opção. `closestQuotedPickup` identifica o ponto de retirada mais próximo entre as ofertas com distâncias conhecidas. Se o campo vier vazio, apresente os pontos sem classificá-los por distância. Ao mostrar um frete, identifique se o valor foi confirmado para a cesta inteira ou apenas distribuído entre os itens.
 
-Quando `plan_purchase` devolver opções que exigem uma escolha de apresentação, pergunte apenas pelo item pendente. Se uma rede não encontrou a apresentação e o plano completo já veio de outra rede, apresente esse plano. Se a pessoa definiu uma marca, preserve-a nas próximas consultas.
+Quando `plan_purchase` devolver opções que exigem uma escolha de apresentação, pergunte apenas pelo item pendente. Se uma rede não encontrou a apresentação e o plano completo já veio de outra rede, apresente esse plano. Se uma tabela marcar `needsSelection`, ofereça suas opções para escolha antes de sugerir uma cesta diferente com aqueles produtos. Se a pessoa definiu uma marca, preserve-a nas próximas consultas.
 
 Para “Tem paracetamol perto de mim?”, use a localização já compartilhada. Se a apresentação mudar a resposta, faça uma pergunta curta sobre ela. Considere uma caixa quando a pessoa não disser quantas precisa.
 
