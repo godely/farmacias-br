@@ -34,8 +34,10 @@ export const schemas = {
   product: z.strictObject({ retailer, sku:sku.optional(), skus:z.array(sku).min(1).max(100).optional(),
     gtin:z.string().refine(validGtin, 'GTIN inválido').optional() }).refine(
     args => [args.sku,args.skus,args.gtin].filter(Boolean).length === 1, 'Informe SKU, SKUs ou GTIN'),
-  stores: z.strictObject({retailer, ...location,
-    page:z.number().int().positive().default(1), limit:z.number().int().min(1).max(100).default(20)}),
+  stores: z.strictObject({retailer:retailer.optional(), retailers:selection.optional(), ...location,
+    page:z.number().int().positive().default(1), limit:z.number().int().min(1).max(100).default(20)})
+    .refine(v => Boolean(v.retailer) !== Boolean(v.retailers),'Selecione a rede ou as redes')
+    .refine(v => !(v.zipcode && v.coordinates),'Informe apenas uma origem'),
   compare: z.strictObject({retailer:partner, query, includeGenerics:z.boolean(), store:z.union([z.literal('nearest'),sku]).optional(), expandSearch:z.boolean().optional(), ...location})
     .refine(v=>!v.expandSearch || (!v.store && Boolean(v.zipcode || v.coordinates)), 'Ampliar exige localização e busca entre lojas')
     .refine(v=>!v.store || Boolean(v.zipcode || v.coordinates),'Informe a localização para escolher a filial')
@@ -295,15 +297,44 @@ async function retailerInfo(input, source, nationalInfo) {
   }
   return {scope:input.scope, retailerId:input.retailer, page:input.page, limitPerQuery:input.limit, results};
 }
+const locatorPages = {
+  paguemenos:'https://www.paguemenos.com.br/nossas-lojas',
+  drogariasaopaulo:'https://www.drogariasaopaulo.com.br/institucional/nossas-lojas',
+};
+
+export async function storeDirectories(args, sources = providers) {
+  const {retailer, retailers, page, limit, zipcode, coordinates} = schemas.stores.parse(args);
+  async function directory(id) {
+    const provider = sources[id];
+    let result;
+    if (id === 'drogasil') {
+      result = await provider.directory(coordinates ?? (zipcode ? {zipcode} : undefined));
+    } else {
+      const scope = provider.directoryScope;
+      const origin = coordinates ?? zipcode;
+      if (scope === 'near_origin' && !origin) {
+        return {retailerId:id,status:'requires_origin',scope,source:locatorPages[id],page,total:null,stores:[]};
+      }
+      const stores = await provider.stores(origin);
+      result = {status:'checked', scope, stores, source:locatorPages[id],
+        order:origin ? (id === 'paguemenos' ? 'locator_distance' : 'straight_line_distance') : 'directory'};
+    }
+    return {...result, retailerId:id, page, total:result.status === 'checked' ? result.stores.length : null,
+      stores:result.stores.slice((page-1)*limit, page*limit)};
+  }
+  if (retailer) return directory(retailer);
+  const results = await Promise.all(retailers.map(async id => {
+    try { return await directory(id); }
+    catch { return {retailerId:id,status:'source_failed',page,total:null,stores:[]}; }
+  }));
+  const states = new Set(results.map(group => group.status));
+  return {retailers, page, limitPerRetailer:limit, status:states.size === 1 ? results[0].status : 'partial', results};
+}
+
 export const operations = { plan: planSelectedBaskets, retailers: listRetailers, search: searchCatalog, suggest: suggestTerms, product: getProduct,
   stock: getStock, prices: comparePrices, info: medicationInfo,
   baskets: args => compareBaskets(args,providers),
-  stores: async ({retailer,page,limit,zipcode,coordinates}) => {
-    const source = providers[retailer];
-    if (source.directoryScope === 'near_origin' && !zipcode && !coordinates) return {retailerId:retailer,status:'requires_origin',stores:[]};
-    const all = retailer === 'drogasil' ? await source.stores() : await source.stores(coordinates??zipcode);
-    return {retailerId:retailer, scope:source.directoryScope??'national', total:all.length, page, stores:all.slice((page-1)*limit,page*limit)};
-  },
+  stores: storeDirectories,
   compare: args => compareOffers(args, providers[args.retailer]),
   basket: args => retailerBasket(args, providers[args.retailer]),
   snapshot: args => startSnapshots(args,providers),

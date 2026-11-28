@@ -100,6 +100,7 @@ farmacias info Rivotril tansulosina --retailers paguemenos,drogariasaopaulo
 farmacias compare 3530 --retailer drogariasaopaulo --generics
 farmacias basket 3179:1 1633706:2 --retailer paguemenos --cep "$CEP"
 farmacias stores --retailer drogasil --limit 5
+farmacias stores --retailers paguemenos,drogariasaopaulo --cep "$CEP" --limit 3
 farmacias snapshot loratadina paracetamol --retailer drogariasaopaulo --max-items 10
 farmacias read_snapshot "$RUN_ID" --limit 5
 ```

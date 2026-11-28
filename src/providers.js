@@ -1,7 +1,7 @@
 import { searchCatalogPage } from 'drogasil-cli/catalog-search';
 import { isDcbName, medicationIntent } from 'drogasil-cli/medication-catalog';
 import {
-  getMedicationInfo, getProductsBySku, listStores, productInfo, resolveMedication, searchProducts, searchStockWindows, stockQuantity,
+  getMedicationInfo, getProductsBySku, getStoreDirectory, listStores, productInfo, resolveMedication, searchProducts, searchStockWindows, stockQuantity,
 } from 'drogasil-cli';
 import { retailer as pagueMenos, searchVerifiedCatalog } from 'paguemenos-cli';
 import { retailer as saoPaulo } from 'drogariasaopaulo-cli';
@@ -22,6 +22,7 @@ const drogasil = {
   name: 'Drogasil',
   info: getMedicationInfo,
   stores: listStores,
+  directory: getStoreDirectory,
   async search(query, page, limit) {
     return (await searchProducts(query, { page: page - 1, hitsPerPage: limit })).hits.map(catalogRow);
   },
