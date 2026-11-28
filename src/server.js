@@ -11,6 +11,8 @@ import { operations, request, schemas } from './index.js';
 
 const productNames = 'Accept a supplied SKU silently. Never ask for, mention, or display a SKU, its value, or a barcode in any user-facing reply, including errors and follow-ups. Identify products by name and presentation. Use the name and presentation for follow-up choices.';
 
+const pickupGuidance = 'Quando a pessoa perguntar se pode ir buscar, diga o que aquela loja informou. A consulta mostra opções de retirada ou unidades na filial. Uma reserva depende de confirmação expressa da loja. Para um pedido online, oriente a aguardar o aviso de que está pronto antes de sair. Se houver um prazo estimado, apresente-o como estimativa. Horário de funcionamento, telefonema e envio de um pedido por si sós não garantem que a caixa esteja separada.';
+
 const presentationGuidance = 'O catálogo encontrou várias apresentações. Em uma pergunta de balcão, faça uma pergunta curta sobre uma diferença que aparece nas opções e que a pessoa ainda não especificou. Priorize dose, forma ou liberação quando diferirem. Se só o tamanho da caixa importar, pergunte quantos comprimidos ela procura. Guarde a relação de produtos para quando a pessoa pedir as opções. Uma apresentação ainda por escolher não confirma estoque. Se já houver resultados de outros itens da cesta, apresente-os. Quando a pessoa escolher uma embalagem, acrescente esse tamanho à consulta do mesmo item. Fabricantes alternativos continuam em uma única linha do pedido.';
 
 const priceGuidance = 'Para “qual sai mais em conta?”, comece pela opção disponível de menor preço conhecido para a quantidade pedida. Em cada tabela da Drogasil, lowestPricedStockedOption aponta para essa linha. Nas outras redes, lowestPricedPickup identifica a oferta de retirada. Se houver uma opção mais perto, mencione-a depois. Se houver preço, consulta ou estoque pendente, limite a comparação às ofertas confirmadas. Só ofereça 25 km se coverage.canExpand for true para a consulta inteira e nenhuma alternativa válida tiver estoque.';
@@ -55,7 +57,11 @@ export function catalogReply(name, args, data) {
 }
 // Some clients render structuredContent and some read only the text blocks.
 export function toolReply(name, args, value) {
-  const data = catalogReply(name, args, Array.isArray(value) ? { retailers: value } : value);
+  let data = catalogReply(name, args, Array.isArray(value) ? { retailers: value } : value);
+  if (['plan_purchase', 'stock', 'prices', 'basket', 'baskets'].includes(name) ||
+      (name === 'compare' && (args.zipcode || args.coordinates))) {
+    data = { ...data, orderEvidence: { orderPlacedByTool: false, reservation: 'unconfirmed', readyForPickup: 'unconfirmed' } };
+  }
   const prompt = data.confirmation ?? (data.results?.length === 1 && data.results[0].confirmation);
   const content = [];
   let structuredContent = data;
@@ -95,7 +101,7 @@ export function shoppingReply(response) {
 
 export function createServer(monitor = null) {
   const server = new McpServer({ name: 'farmacias-br', version }, {
-    instructions: purchaseDescription + ' ' + productNames + ' Use pharmacy_* tools for Pague Menos and Drogaria São Paulo. For their factual questions call pharmacy_info without a CEP. For a brand shopping request settle generic preference first. Use pharmacy_compare for local catalog alternatives and pharmacy_basket for selected local SKUs. Drogasil branch planning, nearest-store quantities and 25 km expansion use the Drogasil tools.'
+    instructions: purchaseDescription + ' ' + productNames + ' ' + pickupGuidance + ' Use pharmacy_* tools for Pague Menos and Drogaria São Paulo. For their factual questions call pharmacy_info without a CEP. For a brand shopping request settle generic preference first. Use pharmacy_compare for local catalog alternatives and pharmacy_basket for selected local SKUs. Drogasil branch planning, nearest-store quantities and 25 km expansion use the Drogasil tools.'
   });
   const registry = {
     registerTool(name, options, handler) {

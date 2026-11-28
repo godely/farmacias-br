@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { localApp, catalogReply, shoppingReply } from '../src/server.js';
+import { localApp, catalogReply, shoppingReply, toolReply } from '../src/server.js';
 import { getStock, listRetailers, request, searchCatalog, suggestTerms } from '../src/index.js';
 import { observations } from '../src/monitoring.js';
 
@@ -198,7 +198,6 @@ test('a full DCB prefix completion takes priority over a similar brand', async (
 });
 
 test('a text-only client gets the exact prompt and executable follow-ups', async () => {
-  const { toolReply } = await import('../src/server.js');
   const args = {retailer:'paguemenos',query:'exem'};
   const res = toolReply('search', args, {results:[{retailerId:args.retailer, products:[], suggestions:['exemplo','exemplo 10mg']}]});
   assert.equal(res.structuredContent.reply, 'Você quis dizer exemplo?');
@@ -259,5 +258,22 @@ test('known pickup and physical inventory give a price follow-up for the origina
     assert.match(reply.structuredContent.priceGuidance,/comece pela opção disponível de menor preço/);
     assert.match(reply.content[0].text,/consulta inteira/);
     assert.deepEqual(JSON.parse(reply.content[1].text),reply.structuredContent);
+  }
+});
+
+test('a pickup offer leaves reservation and readiness unconfirmed, including at a 24-hour store', () => {
+  const offer = { branch: 'Loja 24 horas', channel: 'pickup-in-point', requestedQuantity: 1 };
+  const expected = { orderPlacedByTool: false, reservation: 'unconfirmed', readyForPickup: 'unconfirmed' };
+  for (const name of ['plan_purchase', 'stock', 'prices', 'basket', 'baskets', 'compare']) {
+    const args = { coordinates: { latitude: 0, longitude: 0 } };
+    const response = toolReply(name, args, { offers: [offer] });
+    const data = (name === 'plan_purchase' ? shoppingReply(response) : response).structuredContent;
+    assert.deepEqual(data.orderEvidence, expected);
+    assert.deepEqual(JSON.parse(response.content.at(-1).text).orderEvidence, expected);
+    assert.deepEqual(data.offers, [offer]);
+  }
+  for (const name of ['info', 'search', 'compare']) {
+    const response = toolReply(name, {}, { results: [] });
+    assert.equal(response.structuredContent.orderEvidence, undefined);
   }
 });
