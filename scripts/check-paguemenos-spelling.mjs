@@ -62,7 +62,8 @@ try {
           const yes = (await call('pharmacy_search',{...group.confirmation.onYes, limit:query==='morfi'?50:1})).results[0];
           assert.equal(yes.status, 'matches', 'accepted term has no catalog matches');
           if (query === 'morfi') {
-            if (retailer !== 'drogasil') assert.ok(no.suggestions.length);
+            assert.ok(no.suggestions.every(other => !/\bmorfina\b/i.test(other)));
+            assert.equal(no.interaction, no.suggestions.length ? 'awaiting_alternative_name' : 'awaiting_spelling');
             assert.deepEqual([...new Set(yes.products.map(p=>p.sku))].sort(),expectedSkus[retailer].slice().sort());
             assert.ok(yes.products.every(p=>p.retailerId===retailer && p.activeIngredients.some(a=>/\bmorfina\b/.test(norm(a)))));
             if (retailer!=='paguemenos') {

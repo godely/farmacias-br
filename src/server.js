@@ -16,7 +16,7 @@ const pickupGuidance = 'Quando a pessoa perguntar se pode ir buscar, diga o que 
 
 const presentationGuidance = 'O catálogo encontrou várias apresentações. Em uma pergunta de balcão, faça uma pergunta curta sobre uma diferença que aparece nas opções e que a pessoa ainda não especificou. Priorize dose, forma ou liberação quando diferirem. Se só o tamanho da caixa importar, pergunte quantos comprimidos ela procura. Guarde a relação de produtos para quando a pessoa pedir as opções. Uma apresentação ainda por escolher não confirma estoque. Se já houver resultados de outros itens da cesta, apresente-os. Quando a pessoa escolher uma embalagem, acrescente esse tamanho à consulta do mesmo item. Fabricantes alternativos continuam em uma única linha do pedido.';
 
-const priceGuidance = 'Para “qual sai mais em conta?”, comece pela opção disponível de menor preço conhecido para a quantidade pedida. Em cada tabela da Drogasil, lowestPricedStockedOption aponta para essa linha. Nas outras redes, lowestPricedPickup identifica a oferta de retirada. Se houver uma opção mais perto, mencione-a depois. Se houver preço, consulta ou estoque pendente, limite a comparação às ofertas confirmadas. Só ofereça 25 km se coverage.canExpand for true para a consulta inteira e nenhuma alternativa válida tiver estoque.';
+const priceGuidance = 'Para “qual sai mais em conta?”, comece pela opção disponível de menor preço conhecido para a quantidade pedida. Em cada tabela da Drogasil, lowestPricedStockedOption aponta para essa linha. Nas outras redes, lowestPricedPickup identifica a oferta de retirada. Se houver uma opção mais perto, mencione-a depois. Se houver preço, consulta ou estoque pendente, limite a comparação às ofertas confirmadas. Use a cobertura da consulta inteira ao responder.';
 
 function needsPresentationChoice(table) {
   if (table.status === 'choose_reference') return table.choices?.length > 1;
@@ -75,6 +75,14 @@ export function toolReply(name, args, value) {
     structuredContent = {...data, interaction:'awaiting_name_choice', reply:data.nameChoice.question, nextTool};
     content.push({type:'text',text:data.nameChoice.question + '\nAguarde a escolha de um nome. Use ' + nextTool +
       ' com onSelect da opção escolhida. Se a pessoa disser apenas “sim”, peça que escolha um dos nomes.'});
+  } else if (name === 'suggest' && args.declinedTerm) {
+    const terms = data.suggestions;
+    const qualifier = data.status === 'source_failed' ? 'A consulta de outros nomes falhou. ' :
+      data.status === 'partial' ? 'Parte das redes não respondeu. ' : '';
+    const reply = qualifier + (terms.length ? 'Encontrei '+terms.join(', ')+'. Qual desses nomes aparece na caixa?' :
+      'Pode me dizer outra parte do nome ou como ele aparece na caixa?');
+    structuredContent = {...data, interaction:terms.length ? 'awaiting_alternative_name' : 'awaiting_spelling', reply};
+    content.push({type:'text', text:reply+'\nResponda com o texto acima e aguarde.'});
   } else if (prompt) {
     const instructions = [
       'Responda agora com esta pergunta exata e aguarde:',
@@ -131,7 +139,9 @@ export function shoppingReply(response) {
     guidance.fixedStoreGuidance = 'A consulta à filial escolhida terminou. Responda agora sobre essa filial e encerre o turno. Verifique outra loja apenas se a pessoa solicitar essa busca. Não faça outra chamada para procurar uma alternativa por iniciativa própria. Use o nome e endereço em fixedStore.branch. Para offered, diga “Segundo o site, dá para retirar a quantidade pedida nessa loja”. Para not_offered, diga que o site não ofereceu retirada nessa loja. Para unconfirmed ou lookup_failed, informe que a retirada ficou sem confirmação. Se faltarem distâncias, limite a afirmação de proximidade às lojas com distância conhecida.';
   }
   if (data.checkedRetailers && data.scope === 'whole_basket_per_retailer') {
-    guidance.retailerGuidance = 'Responda pelas redes consultadas. Se outra rede tiver retirada, estoque ou resultado pendente, uma busca sem estoque na Drogasil sozinha não justifica ampliar o raio.';
+    guidance.retailerGuidance = data.coverage?.canExpand
+      ? 'A consulta local confirmou zero em todas as redes selecionadas. Informe a cobertura e pergunte se a pessoa quer ampliar para 25 km. Aguarde a resposta.'
+      : 'Responda com os resultados locais das redes selecionadas e encerre a busca. Informe a disponibilidade confirmada e qualquer informação pendente.';
   }
   const itinerary = itineraryText(data.crossRetailerPlans ?? data.pickupPlans ?? (outcomes.length === 1 ? outcomes[0].pickupPlans : undefined));
   if (itinerary && !data.nextAction) {

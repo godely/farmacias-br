@@ -3,7 +3,8 @@ import { validGtin } from 'paguemenos-cli/vtex';
 import { compareOffers } from 'paguemenos-cli/compare';
 import {planSelectedBaskets, purchaseSchema} from './named-baskets.js';
 import { compareBaskets } from './baskets.js';
-import { retailerBasket, retailerComparison, catalogInfo, catalogType } from 'drogasil-cli/retailer-workflows';
+import { retailerBasket, retailerComparison, catalogInfo, catalogType, requestsDrops } from 'drogasil-cli/retailer-workflows';
+import { alternativeNames } from 'drogasil-cli/medication-catalog';
 import { compareRetailPrices, getMedicationInfo, readSnapshot } from 'drogasil-cli';
 import { providers } from './providers.js';
 import { nameChoices, choiceFollowup, clarifyLookup } from './name-choices.js';
@@ -85,11 +86,10 @@ export async function suggestTerms(args, sources = providers) {
   try {
     const source = sources[retailer];
     let suggestions = declinedTerm && source.alternatives
-      ? await source.alternatives(query, declinedTerm, limit)
-      : await source.suggest(query, declinedTerm ? Math.min(limit + 2, 50) : limit);
+      ? await source.alternatives(query, declinedTerm, 50)
+      : await source.suggest(query, declinedTerm ? 50 : limit);
     if (declinedTerm) {
-      const excluded = new Set([termKey(query), termKey(declinedTerm)]);
-      suggestions = suggestions.filter(term => !excluded.has(termKey(term))).slice(0, limit);
+      suggestions = alternativeNames(suggestions, query, [declinedTerm], limit);
     }
     return { retailerId: retailer, status: suggestions.length ? 'suggestions' : 'no_suggestions', suggestions };
   } catch {
@@ -118,7 +118,7 @@ export async function searchCatalog(args, sources = providers, clarify = nameCho
     try {
       const source = sources[id];
       let rows;
-      if (id !== 'drogasil' && source.byGtin && /\S\s.*\bgotas?\b/iu.test(query)) {
+      if (id !== 'drogasil' && source.byGtin && query.includes(' ') && requestsDrops(query)) {
         const matches = await retailerComparison({retailer:id, query, includeGenerics:false}, source);
         rows = (matches.candidates ?? matches.products ?? []).slice((page - 1) * limit, page * limit);
       } else {
