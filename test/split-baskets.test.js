@@ -213,3 +213,24 @@ test('each of the seven retailer selections retains just the verified items from
     assert.match(shoppingReply(toolReply('plan_purchase',{},r)).content[0].text,/Cesta parcial/);
   }
 });
+
+test('a limited search retains the verified partner trip in the first MCP answer', async () => {
+  const {shoppingReply,toolReply} = await import('../src/server.js');
+  const lines = ['A','B','C','D'].map(query=>({query,includeGenerics:false}));
+  const result = await report(lines,{
+    paguemenos:subset=>partner({A:[2,'Centro'],C:[2,'Centro']},subset),
+    drogariasaopaulo:subset=>partner({B:[2,'Praça'],D:[2,'Praça']},subset),
+    drogasil:subset=>({branchChoices:subset.map(({query})=>Array.from({length:28},(_,j)=>({
+      sku:query,name:query,packs:1,unitPriceBRL:10,
+      store:{id:String(j),name:'Filial '+j,quantity:1,distanceKm:1+j/10},
+    })))}),
+  });
+  const reply=shoppingReply(toolReply('plan_purchase',{},result));
+  assert.equal(reply.structuredContent.nextAction,'answer_with_plan');
+  assert.equal(result.crossRetailerPlans.searchLimited,true);
+  assert.deepEqual(result.crossRetailerPlans.plans.map(p=>[p.stopCount,p.totalBRL]),[[1,40],[2,8]]);
+  const text=reply.content[0].text;
+  assert.match(text,/32,00.*1 parada a mais/);
+  assert.match(text,/combinações ficaram sem avaliação/);
+  assert.doesNotMatch(text,/retirada ficaram sem confirmação/);
+});
