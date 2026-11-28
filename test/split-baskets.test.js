@@ -128,3 +128,27 @@ for (const retailer of ids.slice(1)) {
     }
   });
 }
+
+test('overlapping assortments can fill the same basket with two of the three retailers',async()=>{
+  // A is sold by two chains, B by the second, and C by the third.
+  // Adding a chain must preserve the already feasible two-stop itinerary.
+  for (let mask=1; mask<8; mask++) {
+    const selected=ids.filter((_,i)=>mask & (1<<i));
+    const called=new Set();
+    const result=await planSelectedBaskets({items,origin,retailers:selected},{
+      plan:async (id,lines)=>{
+        called.add(id);
+        if (id === 'drogasil') return drug({A:10},lines);
+        return partner(id === 'paguemenos' ? {B:[3,'b']} : {A:[8,'ac'],C:[5,'ac']},lines);
+      },resolve:assert.fail,
+    });
+    assert.deepEqual([...called].sort(),[...selected].sort());
+    const solution=result.crossRetailerPlans ?? result.results[0].pickupPlans;
+    const full=solution?.plans.find(p=>p.stops.flatMap(s=>s.pickups).length===items.length);
+    assert.equal(Boolean(full),selected.includes('paguemenos') && selected.includes('drogariasaopaulo'),selected.join(','));
+    if (full) {
+      assert.deepEqual([full.stopCount,full.totalBRL],[2,16]);
+      assert.deepEqual(full.stops.find(s=>s.retailerId==='drogariasaopaulo').pickups.map(p=>p.item),[0,2]);
+    }
+  }
+});
