@@ -106,6 +106,7 @@ function itineraryText(result) {
   }
   if (result.comparison) text.push('Economia de ' + currency.format(result.comparison.savingsBRL) +
     ' com ' + result.comparison.extraStops + ' parada(s) a mais.');
+  if (result.searchLimited || result.lookupFailures?.length) text.push('Comparação parcial entre as opções verificadas.');
   return text.join('\n');
 }
 
@@ -119,7 +120,7 @@ export function shoppingReply(response) {
   if (data.checkedRetailers && data.scope === 'whole_basket_per_retailer') {
     guidance.retailerGuidance = 'Responda pelas redes consultadas. Se outra rede tiver retirada, estoque ou resultado pendente, uma busca sem estoque na Drogasil sozinha não justifica ampliar o raio.';
   }
-  const itinerary = itineraryText(data.crossRetailerPlans);
+  const itinerary = itineraryText(data.crossRetailerPlans ?? data.pickupPlans ?? (outcomes.length === 1 ? outcomes[0].pickupPlans : undefined));
   const notes = [itinerary,...Object.values(guidance)].filter(Boolean);
   if (!notes.length) return response;
   const structuredContent = { ...data, ...guidance };

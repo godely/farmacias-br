@@ -106,3 +106,25 @@ test('the first MCP text block gives the complete trip before bulky retailer det
   assert.match(reply.content[0].text,/Cesta completa.*\n.*3 lojas/);
   for(const name of ['Drogasil','Pague Menos','Drogaria São Paulo']) assert.ok(reply.content[0].text.includes(name));
 });
+
+for (const retailer of ids.slice(1)) {
+  test(retailer+' ranks pickups in named, single-selection and mixed MCP baskets',async()=>{
+    const lines=items.slice(0,2);
+    const plan=async (id,subset)=>{
+      if (id!==retailer) return drug({},subset);
+      const joint=subset.length>1;
+      return partner({A:[joint?8:4,joint?'shared':'first'],B:[joint?8:4,joint?'shared':'second']},subset);
+    };
+    const {shoppingReply,toolReply}=await import('../src/server.js');
+    for(const scope of [{retailer},{retailers:[retailer]},{retailers:['drogasil',retailer]}]) {
+      const args={...scope,origin,items:lines};
+      const result=await planSelectedBaskets(args,{plan,resolve:assert.fail});
+      const pickup=(result.results?.find(r=>r.retailerId===retailer) ?? result).pickupPlans;
+      assert.deepEqual(pickup.plans.map(p=>[p.stopCount,p.totalBRL]),[[1,16],[2,8]]);
+      if (result.results) assert.ok(result.completeRetailers.includes(retailer));
+      const text=shoppingReply(toolReply('plan_purchase',args,result)).content[0].text;
+      assert.match(text,/Cesta completa/);
+      assert.match(text,/Economia de/);
+    }
+  });
+}

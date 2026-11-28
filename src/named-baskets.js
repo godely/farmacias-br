@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import {planPurchase, resolveMedication} from 'drogasil-cli';
-import {quoteShoppingList} from 'paguemenos-cli/plan';
-import {crossRetailerPlans} from './split-baskets.js';
+import {quoteChosenOffers,quoteShoppingList,shoppingSource} from 'paguemenos-cli/plan';
+import {crossRetailerPlans} from 'paguemenos-cli/pickup-plans';
 import {providers} from './providers.js';
 
 const allRetailers = Object.keys(providers);
@@ -57,14 +57,15 @@ function localItems(items,id) {
   });
 }
 
-async function planAtRetailer(id,items,{origin,store,expandSearch,includeBranchChoices}) {
+async function planAtRetailer(id,items,{origin,store,expandSearch,includeBranchChoices,fixedOffers},source=providers[id]) {
   if (id==='drogasil') return planPurchase(items,{origin,store,expandSearch,includeBranchChoices,confirmBrands:true});
   if (store || expandSearch) return {
     retailerId:id, status:'branch_inventory_unverified',
     reason:'A rede confirma retirada para a quantidade pedida. O estoque físico de cada filial é desconhecido.',
   };
+  if (fixedOffers) return quoteChosenOffers(id,source,items,origin.zipcode ?? origin);
   const lines=items.map(({selectedSku,quantity=1,...rest})=>({...rest,sku:selectedSku,quantity}));
-  return quoteShoppingList(id,providers[id],lines,origin.zipcode ?? origin);
+  return quoteShoppingList(id,source,lines,origin.zipcode ?? origin);
 }
 
 // Different products frequently quote the same pickup points. Keep every quote
@@ -89,14 +90,27 @@ export function compactPartnerAlternatives(result) {
   return {...summary, tables:tables.map(table => ({...table, choices})), pickupPoints:[...pickupPoints.values()]};
 }
 
-export async function planSelectedBaskets(args,{resolve=resolveMedication, plan=planAtRetailer}={}) {
+export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:customPlan}={}) {
   const {items,retailer}=args;
   const ids=selectedRetailers(args);
+  const sources = new Map();
+  const plan = customPlan ?? ((id,lines,options) => {
+    if (!sources.has(id)) sources.set(id,shoppingSource(providers[id]));
+    return planAtRetailer(id,lines,options,sources.get(id));
+  });
   if (ids.length > 1 && items.some(line => line.selectedSku ||
       (/^\d+$/.test(line.query) && ids.some(id => !line.selectedSkus?.[id])))) {
     return {status:'requires_retailer', question:'De qual farmácia é esse produto?', results:[]};
   }
-  if (retailer) return plan(ids[0],localItems(items,ids[0]),args);
+  const planPickups = items.length > 1 && !args.store && !args.expandSearch;
+  const quoteSubset = (id,indices,chosen) => chosen ? plan(id,chosen,{...args,fixedOffers:true}) :
+    plan(id,localItems(indices.map(i=>items[i]),id),args);
+  if (retailer) {
+    const result = await plan(retailer,localItems(items,retailer),args);
+    if (retailer === 'drogasil' || !planPickups || result.pendingBrands) return result;
+    const pickupPlans = await crossRetailerPlans([{...result,retailerId:retailer}],items,quoteSubset);
+    return {...result,pickupPlans};
+  }
 
   const pendingBrands=[];
   for (const [i,line] of items.entries()) {
@@ -116,12 +130,18 @@ export async function planSelectedBaskets(args,{resolve=resolveMedication, plan=
       return {retailerId:id,status:'source_failed'};
     }
   }));
-  const completeRetailers=results.filter(r=>r.status==='complete' || r.status==='fulfillable').map(r=>r.retailerId);
-  const comparison = ids.length > 1 && items.length > 1 && !args.store && !args.expandSearch
-    ? await crossRetailerPlans(results,items,(id,indices,combined) =>
-        plan(id,combined ?? localItems(indices.map(i => items[i]),id),args)) : undefined;
+  const comparison = planPickups && (ids.length > 1 || ids[0] !== 'drogasil')
+    ? await crossRetailerPlans(results,items,quoteSubset) : undefined;
+  const summaries = results.map(({branchChoices,...result}) => {
+    const pickupPlans = result.retailerId === 'drogasil' ? undefined :
+      (ids.length === 1 ? comparison : comparison?.byRetailer[result.retailerId]);
+    return compactPartnerAlternatives({...result,...(pickupPlans && {pickupPlans})});
+  });
+  const completeRetailers=summaries.filter(r=>r.status==='complete' || r.status==='fulfillable' ||
+    r.pickupPlans?.status==='complete').map(r=>r.retailerId);
+  const {byRetailer,...overall} = comparison ?? {};
   return {scope:'whole_basket_per_retailer', checkedRetailers:ids, completeRetailers,
-    results:results.map(({branchChoices,...summary}) => compactPartnerAlternatives(summary)), ...(comparison && {crossRetailerPlans:comparison})};
+    results:summaries, ...(ids.length > 1 && comparison && {crossRetailerPlans:overall})};
 }
 
 export const purchaseDescription =
@@ -130,4 +150,4 @@ export const purchaseDescription =
   'Keep that scope through clarification of pack size, dose, and generic preferences. A catalog used for clarification does not set the shopping scope. ' +
   'Preserve one item per requested medication, with brand choices and quantity. Retain local product selections by retailer in selectedSkus. ' +
   'For a multi-chain basket lead with a complete crossRetailerPlans plan, naming each store and what to pick up there. Empty completeRetailers only concerns each chain alone. When two plans differ, show the savings and extra stops. Compare verified product subtotals. '+
-  'For a multi-chain result use every retailer result including failures. Drogasil reports branch quantities and trip plans. The partners report local checkout and pickup evidence.';
+  'When a basket is incomplete, identify the item and each chain’s lookup outcome. A catalog miss leaves local stock unknown. For a multi-chain result use every retailer result including failures. For one partner chain lead with pickupPlans for its verified stores. Compare fewest stores and lowest product subtotal. Report searchLimited or failed quotes as partial coverage. Drogasil reports branch quantities. Partner checkout confirms pickup for the requested packs.';
