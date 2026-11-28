@@ -59,7 +59,7 @@ test('a Pague Menos prefix returns terms until the caller selects one, then expo
   const terms = await suggestTerms({query: 'morfi'}, sources);
   assert.ok(terms.suggestions.includes('morfina'));
   assert.deepEqual(searched, ['morfi', 'morfina', 'morfi']);
-  await assert.rejects(suggestTerms({...args, retailer:'drogasil'}, sources));
+  assert.equal((await suggestTerms({...args, retailer:'drogasil'}, sources)).status,'source_failed');
 });
 
 test('a suggestion outage preserves the catalog miss, and a failed catalog does not initiate suggestions', async () => {

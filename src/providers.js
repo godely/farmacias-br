@@ -1,3 +1,4 @@
+import {withDrogasilNames} from './drogasil-names.js';
 import { isDcbName } from 'drogasil-cli/medication-catalog';
 import {
   getProductsBySku, listStores, productInfo, resolveMedication, searchProducts, searchStockWindows, stockQuantity,
@@ -77,7 +78,7 @@ export function withMedicationNames(source, resolve = resolveMedication) {
   } };
 }
 
-export const providers = { drogasil, paguemenos: withMedicationNames(pagueMenos), drogariasaopaulo: {
+export const providers = { drogasil:withDrogasilNames(drogasil,catalogRow), paguemenos: withMedicationNames(pagueMenos), drogariasaopaulo: {
     ...saoPaulo, basket:createRetailer({name:saoPaulo.name,site:saoPaulo.site}).basket,
   } };
 export const retailPartners = [pagueMenos, saoPaulo];

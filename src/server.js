@@ -36,8 +36,23 @@ function confirmFirst(group, original) {
   } };
 }
 
+function confirmSelection(args,groups) {
+  if (groups.some(group=>group.products?.length)) return;
+  const proposed=groups.map(group=>group.suggestions?.[0]).filter(Boolean);
+  const key=s=>s.normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().trim();
+  if (!proposed.length || proposed.some(term=>key(term)!==key(proposed[0]))) return;
+  const term=proposed[0], retailers=groups.map(group=>group.retailerId);
+  return {question:`Você quis dizer ${term}?`,onYesTool:'pharmacy_search',onNoTool:'pharmacy_suggest',
+    onYes:{query:term,retailers,...(args.limit && {limit:args.limit})},
+    onNo:{query:args.query,declinedTerm:term,retailers}};
+}
+
 export function catalogReply(name, args, data) {
-  if (name === 'search') return { ...data, results: data.results.map(group => confirmFirst(group, args.query)) };
+  if (name === 'search' || (name==='suggest' && data.results && !args.declinedTerm && !args.listAll)) {
+    const results=data.results.map(group=>confirmFirst(group,args.query));
+    const confirmation=(args.retailers || results.length>1) && confirmSelection(args,results);
+    return {...data,results,...(confirmation && {confirmation})};
+  }
   if (name === 'suggest' && !args.declinedTerm && !args.listAll) return confirmFirst(data, args.query);
   return data;
 }
