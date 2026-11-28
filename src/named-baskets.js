@@ -1,6 +1,7 @@
 import {z} from 'zod';
 import {planPurchase, resolveMedication} from 'drogasil-cli';
 import {quoteShoppingList} from 'paguemenos-cli/plan';
+import {crossRetailerPlans} from './split-baskets.js';
 import {providers} from './providers.js';
 
 const allRetailers = Object.keys(providers);
@@ -56,8 +57,8 @@ function localItems(items,id) {
   });
 }
 
-async function planAtRetailer(id,items,{origin,store,expandSearch}) {
-  if (id==='drogasil') return planPurchase(items,{origin,store,expandSearch,confirmBrands:true});
+async function planAtRetailer(id,items,{origin,store,expandSearch,includeBranchChoices}) {
+  if (id==='drogasil') return planPurchase(items,{origin,store,expandSearch,includeBranchChoices,confirmBrands:true});
   if (store || expandSearch) return {
     retailerId:id, status:'branch_inventory_unverified',
     reason:'A rede confirma retirada para a quantidade pedida. O estoque físico de cada filial é desconhecido.',
@@ -108,14 +109,19 @@ export async function planSelectedBaskets(args,{resolve=resolveMedication, plan=
 
   const results=await Promise.all(ids.map(async id=>{
     try {
-      const result=await plan(id,localItems(items,id),args);
-      return {...compactPartnerAlternatives(result), retailerId:id};
+      const includeBranchChoices=id==='drogasil' && ids.length>1 && items.length>1 && !args.store && !args.expandSearch;
+      const result=await plan(id,localItems(items,id),{...args,includeBranchChoices});
+      return {...result, retailerId:id};
     } catch {
       return {retailerId:id,status:'source_failed'};
     }
   }));
   const completeRetailers=results.filter(r=>r.status==='complete' || r.status==='fulfillable').map(r=>r.retailerId);
-  return {scope:'whole_basket_per_retailer', checkedRetailers:ids, completeRetailers, results};
+  const comparison = ids.length > 1 && items.length > 1 && !args.store && !args.expandSearch
+    ? await crossRetailerPlans(results,items,(id,indices,combined) =>
+        plan(id,combined ?? localItems(indices.map(i => items[i]),id),args)) : undefined;
+  return {scope:'whole_basket_per_retailer', checkedRetailers:ids, completeRetailers,
+    results:results.map(({branchChoices,...summary}) => compactPartnerAlternatives(summary)), ...(comparison && {crossRetailerPlans:comparison})};
 }
 
 export const purchaseDescription =
@@ -123,4 +129,5 @@ export const purchaseDescription =
   'No pharmacy named or “qualquer uma” means all three: omit retailer and retailers. Use retailer only for a chain the shopper actually chose, and retailers for a chosen group. ' +
   'Keep that scope through clarification of pack size, dose, and generic preferences. A catalog used for clarification does not set the shopping scope. ' +
   'Preserve one item per requested medication, with brand choices and quantity. Retain local product selections by retailer in selectedSkus. ' +
+  'For a multi-chain basket lead with a complete crossRetailerPlans plan, naming each store and what to pick up there. Empty completeRetailers only concerns each chain alone. When two plans differ, show the savings and extra stops. Compare verified product subtotals. '+
   'For a multi-chain result use every retailer result including failures. Drogasil reports branch quantities and trip plans. The partners report local checkout and pickup evidence.';
