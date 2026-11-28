@@ -7,7 +7,7 @@ const chains = new Map([
   ['Drogasil', 'drogasil'], ['Pague Menos', 'paguemenos'],
   ['Drogaria São Paulo', 'drogariasaopaulo'],
 ]);
-const operations = new Set(['retailers', 'search', 'suggest', 'product', 'info', 'stores', 'compare', 'basket', 'snapshot', 'read_snapshot', 'stock', 'prices', 'get_medication_info',
+const operations = new Set(['retailers', 'search', 'suggest', 'product', 'info', 'stores', 'compare', 'basket', 'baskets', 'snapshot', 'read_snapshot', 'stock', 'prices', 'get_medication_info',
   'plan_purchase', 'search_products', 'get_products', 'find_nearby_stock', 'compare_products',
   'compare_pharmacy_prices', 'collect_catalog_snapshot', 'read_catalog_snapshot', 'service', 'presentation_canary']);
 const failures = new Set(['upstream_failure', 'lookup_miss', 'stock_unknown', 'catalog_incomplete', 'service_exit', 'handler_exception', 'timeout', 'canary_mismatch']);

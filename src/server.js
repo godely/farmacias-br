@@ -10,17 +10,18 @@ import { operations, request, schemas } from './index.js';
 
 const descriptions = {
   retailers: 'List supported Brazilian retailers and the stock and price evidence each can provide.',
-  search: 'Search one or all supported catalogs without a CEP. For a medication name confirmation, ask only confirmation.question verbatim. Stop for the reply. Sim accepts that single term: call pharmacy_search with onYes. Não: call pharmacy_suggest with onNo and show the remaining terms. Use activeIngredients and ingredientEvidence for ingredient questions. Return products only for the requested retailer.',
+  search: 'Search exactly the selected catalogs without a CEP. For a medication name confirmation, ask only confirmation.question verbatim. Stop for the reply. Sim accepts that single term: call pharmacy_search with onYes. Não: call pharmacy_suggest with onNo and show the remaining terms. Use activeIngredients and ingredientEvidence for ingredient questions. Return products only for the requested retailer.',
   suggest: 'Suggest a search term for Pague Menos or Drogaria São Paulo. Always supply the requested retailer. Return suggestions without products or CEP. Ask only confirmation.question and wait. Sim: call pharmacy_search with onYes. Não: call this tool with onNo, list the remaining terms, and wait for a selection. If none remain, ask for another spelling. Use listAll only on an explicit request for all suggestions.',
   compare: 'Compare presentations in one named partner catalog without a CEP. Send a local SKU or a name, after settling brand/generic preference. Show the requested product first, then only generics verified against the reference presentation and the local barcode. Incomplete presentation or partial results can limit the list.',
   basket: 'Check the whole selected basket at one partner retailer in one call. Supply exact local SKUs, quantities and shared CEP. For multiple sellers ask which to use. Pague Menos and São Paulo use a single fulfillment simulation. Only commonPickupPoints apply to all items. A fewest-stores or shortest-route plan is available for Drogasil only.',
-  stores: 'Page through the public branch directory for Drogasil. Directory membership alone gives no evidence of shelf stock, distance order or pickup availability.',
+  baskets: 'Compare whole baskets of the same GTINs and quantities at exactly the selected retailers. Send the whole basket once. Report complete CEP-verified product subtotals separately from Drogasil catalog estimates, and report missing items and fees.',
+  stores: 'Page through the named retailer’s branch directory. Pague Menos needs a shared CEP or coordinates. Directory membership alone gives no evidence of shelf stock, distance order or pickup availability.',
   info: 'Get only medication facts from the named retailer by names or SKUs in one call, without a location or price/stock inquiry. Keep strengths with their own titles. Separate prescription, retention and form. Missing labels are unconfirmed. Pages refer to catalog search.',
   snapshot: 'Start an explicitly requested, saved catalog snapshot for one retailer. Read the returned run ID with pharmacy_read_snapshot.',
   read_snapshot: 'Read a page of an existing catalog snapshot. Check state and nextOffset before claiming the run is complete.',
   product: 'Read catalog facts and online prices for one SKU, an ordered batch of SKUs, or one exact barcode. Always supply the owning retailer. Do not infer a prescription rule from a missing fact.',
-  stock: 'Check one retailer and SKU at the supplied location. Drogasil also accepts exact coordinates and returns branch quantities, the other retailers quote fulfillment. Only report the evidence actually returned.',
-  prices: 'Compare the same product across Brazilian pharmacies by CEP. Supply a name, GTIN, Drogasil SKU, or a SKU with its owning retailer. This call identifies every checked chain and returns its status. Rank locally verified prices separately from online-only offers. For choose_reference, let the user identify the pack, then send its retailer and SKU. Ask about generic consent for brand shopping.',
+  stock: 'Check one retailer and SKU at the supplied location. All three accept CEP or coordinates. Drogasil returns branch quantities, the other retailers quote fulfillment. Only report the evidence actually returned.',
+  prices: 'Compare the same product across Brazilian pharmacies by CEP. Use retailers for the target chains and retailer for the owner of a numeric SKU. Supply a name, GTIN or SKU. This call identifies every checked chain and returns its status. Rank locally verified prices separately from online-only offers. For choose_reference, let the user identify the pack, then send its retailer and SKU. Ask about generic consent for brand shopping.',
 };
 
 function confirmFirst(group, original) {
@@ -73,7 +74,11 @@ export function createServer(monitor = null) {
   } : server;
   registerDrogasilTools({
     registerTool(name, options, handler) {
-      const shared = ['compare_pharmacy_prices','read_catalog_snapshot'].includes(name);
+      if (name==='compare_pharmacy_prices') {
+        return registry.registerTool(name,{...options,inputSchema:{...options.inputSchema,retailers:schemas.baskets.shape.retailers.optional()},
+          description:descriptions.prices},async args=>toolReply('prices',args,await request('prices',args)));
+      }
+      const shared = name==='read_catalog_snapshot';
       const description = shared ? options.description : 'Drogasil only. ' + options.description;
       return registry.registerTool(name,{...options,description},handler);
     },

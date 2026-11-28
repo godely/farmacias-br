@@ -2,7 +2,6 @@ import { isDcbName } from 'drogasil-cli/medication-catalog';
 import {
   getProductsBySku, listStores, productInfo, resolveMedication, searchProducts, searchStockWindows, stockQuantity,
 } from 'drogasil-cli';
-import { createRetailer } from 'paguemenos-cli/vtex';
 import { retailer as pagueMenos } from 'paguemenos-cli';
 import { retailer as saoPaulo } from 'drogariasaopaulo-cli';
 
@@ -77,7 +76,5 @@ export function withMedicationNames(source, resolve = resolveMedication) {
   } };
 }
 
-export const providers = { drogasil, paguemenos: withMedicationNames(pagueMenos), drogariasaopaulo: {
-    ...saoPaulo, basket:createRetailer({name:saoPaulo.name,site:saoPaulo.site}).basket,
-  } };
+export const providers = { drogasil, paguemenos: withMedicationNames(pagueMenos), drogariasaopaulo: saoPaulo };
 export const retailPartners = [pagueMenos, saoPaulo];

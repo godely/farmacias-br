@@ -106,7 +106,8 @@ try {
     }
     await check(retailer,'coordinate-only and unknown stock SKU',async()=>{
       const geo=await call('stock',{...args,sku,coordinates:{latitude:0,longitude:0}});
-      assert.equal(geo.status,'requires_cep');
+      assert.ok(['checked','partial','source_failed'].includes(geo.status));
+      assert.ok(geo.offers.every(o=>o.localStatus!=='available'||o.priceScope==='verified_for_coordinates'));
       const missing=await call('stock',{...args,sku:'999999999',zipcode:origins[0]});
       assert.equal(missing.status,'unknown_sku');
       assert.deepEqual(missing.offers,[]);

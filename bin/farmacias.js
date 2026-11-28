@@ -4,23 +4,24 @@ import { request } from '../src/index.js';
 
 const usage = `Farmácias BR
   farmacias retailers
-  farmacias search <nome> [--retailer ID] [--page N] [--limit N]
+  farmacias search <nome> [--retailer ID ...] [--page N] [--limit N]
   farmacias suggest <prefixo> [--retailer ID] [--limit N]
   farmacias product <SKU> --retailer ID
   farmacias product --gtin EAN --retailer ID
   farmacias product <SKU> <SKU> --retailer ID
-  farmacias stores --retailer ID [--page N --limit N]
+  farmacias stores --retailer ID [--cep CEP | --lat LAT --lon LON] [--page N --limit N]
   farmacias compare <nome ou SKU> --retailer ID [--generics]
+  farmacias baskets GTIN[:quantidade]... --retailers ID,ID --cep CEP
   farmacias basket SKU[:quantidade[:vendedor]]... --retailer ID --cep CEP
-  farmacias info <nome ou SKU>... --retailer ID
+  farmacias info <nome ou SKU>... --retailer ID [--brazil]
   farmacias snapshot <consulta>... --retailer ID [--max-items N]
   farmacias read_snapshot <run-id> [--offset N --limit N]
   farmacias stock <SKU> --retailer ID (--cep CEP | --lat LAT --lon LON) [--quantity N]
-  farmacias prices <nome, SKU ou GTIN> --cep CEP [--retailer ID] [--generics]
+  farmacias prices <nome, SKU ou GTIN> --cep CEP [--retailer ID_DO_SKU] [--retailers ID,ID] [--generics]
   Resultados em JSON. Os identificadores de loja estão em farmacias retailers.`;
 try {
   const { positionals: [operation, ...terms], values } = parseArgs({ allowPositionals: true, options: {
-    lat: { type: 'string' }, lon: { type: 'string' }, help: { type: 'boolean', short: 'h' }, retailer: { type: 'string' }, cep: { type: 'string' },
+    lat: { type: 'string' }, lon: { type: 'string' }, help: { type: 'boolean', short: 'h' }, retailer: { type: 'string', multiple:true }, retailers:{type:'string'}, brazil:{type:'boolean'}, cep: { type: 'string' },
     gtin: {type:'string'}, 'max-items':{type:'string'}, offset:{type:'string'},
     page: { type: 'string' }, limit: { type: 'string' }, quantity: { type: 'string' },
     generics: { type: 'boolean' }, json: { type: 'boolean' },
@@ -31,7 +32,12 @@ try {
     if (values.gtin !== undefined) args.gtin=values.gtin;
     if (values['max-items'] !== undefined) args.maxItems=Number(values['max-items']);
     if (values.offset !== undefined) args.offset=Number(values.offset);
-    if (operation === 'basket') args.items=terms.map(term=>{
+    if(operation==='baskets') args.items=terms.map(term=>{
+      if(!/^\d+(?::\d+)?$/.test(term)) throw Error('Expected GTIN[:quantity]');
+      const [gtin,quantity]=term.split(':');
+      return {gtin,quantity:Number(quantity??1)};
+    });
+    else if (operation === 'basket') args.items=terms.map(term=>{
       if (!/^\d+(?::\d+(?::[^:]+)?)?$/.test(term)) throw Error('Expected SKU[:quantity[:seller]]');
       const [sku,quantity,sellerId]=term.split(':');
       return {sku,quantity:Number(quantity??1),sellerId};
@@ -40,7 +46,11 @@ try {
     else if (['info','snapshot'].includes(operation)) args.queries=terms;
     else if (operation === 'product' && terms.length>1) args.skus=terms;
     else if (terms.length) args[['stock','product'].includes(operation) ? 'sku' : 'query'] = terms.join(' ');
-    if (values.retailer !== undefined) args.retailer = values.retailer;
+    if (values.retailer?.length===1) args.retailer=values.retailer[0];
+    else if (values.retailer?.length && operation==='search' && !values.retailers) args.retailers=values.retailer;
+    else if(values.retailer?.length) throw Error('Use --retailers for multiple target chains');
+    if (values.retailers!==undefined) args.retailers=values.retailers.split(',').map(s=>s.trim());
+    if (values.brazil) args.scope='brazil';
     if (values.lat !== undefined || values.lon !== undefined) {
       args.coordinates = { latitude: values.lat?.trim() ? Number(values.lat) : NaN,
         longitude: values.lon?.trim() ? Number(values.lon) : NaN };

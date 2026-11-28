@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { catalogInfo, medicationCard } from '../src/catalog-workflows.js';
+import { catalogInfo, medicationCard } from 'drogasil-cli/retailer-workflows';
 import { getProduct, schemas } from '../src/index.js';
-import { retailerBasket, retailerComparison } from '../src/retailer-shopping.js';
+import { retailerBasket, retailerComparison } from 'drogasil-cli/retailer-workflows';
 
 test('bulk preserves missing, failed and repeated SKUs and barcode lookups validate returned identifiers', async()=>{
   const calls=[];
@@ -66,7 +66,7 @@ test('only jointly quoted items and identical pickup IDs yield a complete basket
 });
 
 test('a partner snapshot saves all sellers per SKU, deduplicates overlapping queries and preserves a partial failed run',async t=>{
-  const {catalogSnapshot}=await import('../src/catalog-workflows.js');
+  const {catalogSnapshot}=await import('drogasil-cli/retailer-workflows');
   const {mkdtemp,rm}=await import('node:fs/promises');
   const {join}=await import('node:path');
   const {tmpdir}=await import('node:os');

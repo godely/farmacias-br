@@ -151,7 +151,9 @@ test('coordinate-only origins reach the point-capable retailer and request a CEP
   const row={sku:'42',name:'Example'};
   const sources={drogasil:{product:async()=>[row],local:async(arg,origin)=>{assert.deepEqual(origin,coordinates);return arg}}};
   assert.equal((await getStock({retailer:'drogasil',sku:'42',coordinates},sources)).status,'checked');
-  assert.equal((await getStock({retailer:'paguemenos',sku:'42',coordinates})).status,'requires_cep');
+  for(const retailer of ['paguemenos','drogariasaopaulo']) {
+    assert.equal((await getStock({retailer,sku:'42',coordinates},{[retailer]:sources.drogasil})).status,'checked');
+  }
   assert.equal((await request('prices',{query:'42',coordinates})).status,'requires_cep');
 });
 

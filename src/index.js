@@ -1,12 +1,13 @@
 import { z } from 'zod';
 import { validGtin } from 'paguemenos-cli/vtex';
-import { retailerBasket, retailerComparison } from './retailer-shopping.js';
-import { catalogInfo, catalogSnapshot, catalogType } from './catalog-workflows.js';
+import { compareBaskets } from './baskets.js';
+import { retailerBasket, retailerComparison, catalogInfo, catalogSnapshot, catalogType } from 'drogasil-cli/retailer-workflows';
 import { compareRetailPrices, getMedicationInfo, readSnapshot } from 'drogasil-cli';
-import { providers, retailPartners } from './providers.js';
+import { providers } from './providers.js';
 
 export const retailerIds = Object.keys(providers);
 const retailer = z.enum(retailerIds);
+const selection = z.array(retailer).min(1).max(3).refine(ids => new Set(ids).size === ids.length, 'Rede repetida');
 const partner = z.enum(['paguemenos','drogariasaopaulo']);
 const sku = z.string().trim().regex(/^\d{1,20}$/);
 const zipcode = z.string().trim().regex(/^\d{5}-?\d{3}$/).refine(value => !/^0+-?0+$/.test(value), 'CEP inválido');
@@ -17,8 +18,8 @@ const withLocation = shape => z.strictObject({ ...shape, ...location })
 const query = z.string().trim().min(1).max(150);
 export const schemas = {
   retailers: z.strictObject({}),
-  search: z.strictObject({ query, retailer: retailer.optional(), page: z.number().int().min(1).max(100).default(1),
-    limit: z.number().int().min(1).max(50).default(10) }),
+  search: z.strictObject({ query, retailer: retailer.optional(), retailers: selection.optional(), page: z.number().int().min(1).max(100).default(1),
+    limit: z.number().int().min(1).max(50).default(10) }).refine(v=>!v.retailer || !v.retailers,'Use retailer ou retailers'),
   suggest: z.strictObject({ query, retailer: partner.default('paguemenos'),
     declinedTerm: query.optional().describe('Previously proposed term the user declined. Return remaining suggestions.'),
     listAll: z.boolean().optional().describe('Use only when the user explicitly requests a list of terms.'),
@@ -26,18 +27,19 @@ export const schemas = {
   product: z.strictObject({ retailer, sku:sku.optional(), skus:z.array(sku).min(1).max(100).optional(),
     gtin:z.string().refine(validGtin, 'GTIN inválido').optional() }).refine(
     args => [args.sku,args.skus,args.gtin].filter(Boolean).length === 1, 'Informe SKU, SKUs ou GTIN'),
-  stores: z.strictObject({retailer:z.literal('drogasil'),
+  stores: z.strictObject({retailer, ...location,
     page:z.number().int().positive().default(1), limit:z.number().int().min(1).max(100).default(20)}),
   compare: z.strictObject({retailer:partner, query, includeGenerics:z.boolean()}),
   basket: z.strictObject({retailer:partner, zipcode, items:z.array(z.strictObject({sku,
     sellerId:z.string().trim().min(1).max(100).optional(), quantity:z.number().int().min(1).max(1000).default(1)})).min(1).max(20)}),
-  info: z.strictObject({retailer, queries:z.array(query).min(1).max(10),
+  baskets: z.strictObject({retailers:selection,zipcode,items:z.array(z.strictObject({gtin:z.string().refine(validGtin),quantity:z.number().int().min(1).max(1000).default(1),sellers:z.partialRecord(retailer,z.string()).optional()})).min(1).max(20)}),
+  info: z.strictObject({retailer, scope:z.enum(['catalog','brazil']).default('catalog'), queries:z.array(query).min(1).max(10),
     page:z.number().int().min(1).max(100).default(1), limit:z.number().int().min(1).max(50).default(20)}),
   snapshot: z.strictObject({retailer, queries:z.array(query).min(1).max(10), maxItems:z.number().int().min(1).max(1000).default(20)}),
   read_snapshot: z.strictObject({runId:z.string().uuid(), offset:z.number().int().min(0).default(0), limit:z.number().int().min(1).max(100).default(20)}),
   stock: withLocation({ retailer, sku, quantity: z.number().int().min(1).max(1000).default(1) }),
   prices: withLocation({ query, retailer: retailer.optional().describe('Retailer owning the numeric SKU in query'),
-    includeGenerics: z.boolean().default(false) }),
+    includeGenerics: z.boolean().default(false), retailers: selection.optional() }),
 };
 const stockEvidence = { drogasil: 'branch_quantity', paguemenos: 'fulfillment_quote',
   drogariasaopaulo: 'fulfillment_quote' };
@@ -45,7 +47,7 @@ const stockEvidence = { drogasil: 'branch_quantity', paguemenos: 'fulfillment_qu
 export function listRetailers() {
   return retailerIds.map(id => ({ id, retailer: providers[id].name, stockEvidence: stockEvidence[id],
     capabilities:{batchSku:true, exactGtin:true, medicationInfo:'catalog', catalogSnapshots:true,
-      stockOrigin:id === 'drogasil' ? ['cep','coordinates'] : ['cep'],
+      stockOrigin:['cep','coordinates'], directoryScope:providers[id].directoryScope??'national',
       storeDirectory:typeof providers[id].stores === 'function', nearestBranch:id === 'drogasil', exactBranchQuantity:id === 'drogasil',
       purchasePlan:id === 'drogasil', equivalentPresentations:id === 'drogasil' ? 'native' : 'verified_barcode_bridge',
       basket:id === 'drogasil' ? 'branch_plan' : 'joint_fulfillment_quote'},
@@ -82,8 +84,8 @@ function termKey(value) {
 }
 
 export async function searchCatalog(args, sources = providers) {
-  const { query, retailer, page, limit } = schemas.search.parse(args);
-  const ids = retailer ? [retailer] : retailerIds;
+  const { query, retailer, retailers, page, limit } = schemas.search.parse(args);
+  const ids = retailers ?? (retailer ? [retailer] : retailerIds);
   const results = await Promise.all(ids.map(async id => {
     try {
       const rows = await sources[id].search(query, page, limit);
@@ -135,10 +137,9 @@ export async function getStock(args, sources = providers) {
   const { retailer, sku, zipcode, coordinates, quantity } = schemas.stock.parse(args);
   const source = sources[retailer];
   const evidence = stockEvidence[retailer];
-  if (retailer !== 'drogasil' && !zipcode) return { retailerId: retailer, evidence, status: 'requires_cep', offers: [] };
   let rows;
   try {
-    if (source.serves && !await source.serves(zipcode)) {
+    if (zipcode && source.serves && !await source.serves(zipcode)) {
       return { retailerId: retailer, evidence, status: 'outside_local_directory', offers: [] };
     }
     rows = await source.product(sku);
@@ -149,14 +150,14 @@ export async function getStock(args, sources = providers) {
   const offers = [];
   let failures = 0;
   for (const row of rows) {
-    try { offers.push(summary(await source.local(row, retailer === 'drogasil' && coordinates ? coordinates : zipcode, quantity), retailer)); }
+    try { offers.push(summary(await source.local(row, coordinates ?? zipcode, quantity), retailer)); }
     catch { failures++; offers.push({ ...summary(row, retailer), localStatus: 'lookup_failed' }); }
   }
   return { retailerId: retailer, evidence, status: failures === rows.length ? 'source_failed' : failures ? 'partial' : 'checked', offers };
 }
 
 export async function comparePrices(args, { compare = compareRetailPrices, sources = providers } = {}) {
-  const { query, zipcode, retailer, includeGenerics } = schemas.prices.parse(args);
+  const { query, zipcode, retailer, retailers = retailerIds, includeGenerics } = schemas.prices.parse(args);
   if (!zipcode) return { status: 'requires_cep', reason: 'Os serviços de entrega e retirada verificam o CEP.' };
   let reference = query;
   if (retailer) {
@@ -169,7 +170,7 @@ export async function comparePrices(args, { compare = compareRetailPrices, sourc
   const named = !retailer && !/^\d+$/.test(query);
   let result;
   try {
-    result = await compare(reference, { zipcode, retailers: retailPartners, includeGenerics });
+    result = await compare(reference, { zipcode, retailers: retailers.filter(id=>id!=='drogasil').map(id=>sources[id]), includeDrogasil:retailers.includes('drogasil'), includeGenerics });
   } catch (error) {
     if (!named) throw error;
     result = { status: 'source_failed', issues: [{ retailer: 'Drogasil', status: 'reference_lookup_failed' }] };
@@ -178,7 +179,7 @@ export async function comparePrices(args, { compare = compareRetailPrices, sourc
 
   // Other catalogs may list a presentation missing from the primary catalog.
   // A search hit is only a candidate until the user identifies the pack.
-  const discovery = await searchCatalog({ query, limit: 5 }, sources);
+  const discovery = await searchCatalog({ query, retailers, limit: 5 }, sources);
   const candidates = discovery.results.flatMap(group => group.products);
   return { ...result, status: candidates.length ? 'choose_reference' : result.status, candidates,
     discovery: discovery.results.map(({ retailerId, status }) => ({ retailerId, status })) };
@@ -187,7 +188,7 @@ export async function comparePrices(args, { compare = compareRetailPrices, sourc
 export async function medicationInfo(args, sources = providers) {
   const input = schemas.info.parse(args);
   if (input.retailer === 'drogasil') {
-    const data = await getMedicationInfo(input.queries);
+    const data = await getMedicationInfo(input.queries,{scope:input.scope});
     return {...data, retailerId:input.retailer, page:input.page, limitPerQuery:input.limit,
       results:data.results.map(row => ({...row, products:/^\d+$/.test(row.query) ? row.products :
         row.products.slice((input.page-1)*input.limit,input.page*input.limit)}))};
@@ -196,9 +197,12 @@ export async function medicationInfo(args, sources = providers) {
 }
 export const operations = { retailers: listRetailers, search: searchCatalog, suggest: suggestTerms, product: getProduct,
   stock: getStock, prices: comparePrices, info: medicationInfo,
-  stores: async ({retailer,page,limit}) => {
-    const all = await providers[retailer].stores();
-    return {retailerId:retailer, total:all.length, page, stores:all.slice((page-1)*limit,page*limit)};
+  baskets: args => compareBaskets(args,providers),
+  stores: async ({retailer,page,limit,zipcode,coordinates}) => {
+    const source = providers[retailer];
+    if (source.directoryScope === 'near_origin' && !zipcode && !coordinates) return {retailerId:retailer,status:'requires_origin',stores:[]};
+    const all = retailer === 'drogasil' ? await source.stores() : await source.stores(coordinates??zipcode);
+    return {retailerId:retailer, scope:source.directoryScope??'national', total:all.length, page, stores:all.slice((page-1)*limit,page*limit)};
   },
   compare: args => retailerComparison(args, providers[args.retailer]),
   basket: args => retailerBasket(args, providers[args.retailer]),

@@ -71,7 +71,7 @@ Em 27 de novembro de 2026, verificamos uma apresentação de paracetamol em um C
 
 Repetimos a comparação nas 27 capitais e em Parintins (AM), Petrolina (PE), Catalão (GO), Viçosa (MG) e Lages (SC). Para a mesma apresentação, pelo menos uma rede confirmou uma oferta em cada um dos 32 CEPs. Pague Menos confirmou em 31 e Drogaria São Paulo em 19. São observações de uma caixa por CEP na data do ensaio.
 
-A consulta de estoque da Drogasil também aceita `--lat` e `--lon` ou um objeto JSON `coordinates` com `latitude` e `longitude`. Os adaptadores que verificam a entrega por CEP retornam `requires_cep` quando recebem apenas um ponto. Quando o catálogo de referência não identifica um nome, a API procura candidatos nos demais catálogos para que a pessoa escolha uma apresentação.
+A consulta de estoque da Drogasil também aceita `--lat` e `--lon` ou um objeto JSON `coordinates` com `latitude` e `longitude`. Os parceiros também verificam atendimento usando coordenadas na consulta de estoque. A comparação de preços por área usa CEP. Quando o catálogo de referência não identifica um nome, a API procura candidatos nos demais catálogos para que a pessoa escolha uma apresentação.
 
 A resposta de preços inclui as modalidades que cada rede confirmou, taxas informadas e identificação e endereço dos pontos de retirada. Uma opção de retirada confirma o atendimento simulado para aquela quantidade. Para repetir o ensaio local de concorrência, rejeição de entradas e persistência de mil produtos, execute `node scripts/stress.mjs` na cópia de desenvolvimento. O ensaio usa o serviço em loopback e um catálogo sintético.
 
@@ -82,9 +82,9 @@ A resposta de preços inclui as modalidades que cada rede confirmou, taxas infor
 | Catálogo, SKU, lote de SKUs e GTIN | Sim | Sim |
 | Informações por nome ou SKU, sem CEP | Ficha estruturada e fontes regulatórias no MCP específico | Título e campos publicados pela rede |
 | Marca e genéricos da mesma apresentação | Comparação no catálogo Drogasil | Equivalência do catálogo de referência e embalagem confirmada na rede |
-| Preço e atendimento local | Estoque por filial e preço de referência | Simulação por CEP, SKU, vendedor e quantidade |
+| Preço e atendimento local | Estoque por filial e preço de referência | Simulação por CEP ou coordenadas, SKU, vendedor e quantidade |
 | Cesta de vários produtos | Planejamento de paradas e percurso | Simulação conjunta, pontos de retirada comuns e subtotal dos produtos quando confirmado |
-| Diretório de lojas | Sim | Os pontos de retirada vêm da cotação |
+| Diretório de lojas | Sim | Localizador por origem na Pague Menos e diretório nacional de filiais identificadas na Drogaria São Paulo |
 | Filial fisicamente mais próxima e ampliação para 25 km | Sim | Sem cobertura confirmada para essa operação |
 | Snapshot com paginação de leitura | Sim | Sim, com ofertas por SKU |
 
@@ -103,3 +103,5 @@ farmacias read_snapshot "$RUN_ID" --limit 5
 O teste de aceitação chama o MCP por stdio contra os catálogos reais, exercita os dois CEPs informados no momento do teste e descarta seu banco temporário de snapshots. Ele valida separadamente o escopo do preço, a quantidade consultada, o vendedor e a opção de retirada comum. Execute `node scripts/check-retailer-workflows.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"` com dois CEPs de teste para as cotações. O número de lojas e os preços variam.
 
 Para verificar também os executáveis dos dois pacotes parceiros publicados no GitHub, execute `node scripts/check-sibling-clis.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"`. O teste cobre busca, sugestões, SKU, informações, código de barras, estoque.
+
+Use `farmacias prices GTIN --cep CEP --retailers paguemenos,drogariasaopaulo` para restringir as ofertas às redes escolhidas. A opção `--retailer` em preços identifica o dono de um SKU local. Para uma cesta inteira use `farmacias baskets GTIN:2 OUTRO_GTIN:1 --cep CEP --retailers paguemenos,drogariasaopaulo`. As mesmas consultas estão disponíveis como `pharmacy_prices` e `pharmacy_baskets`.
