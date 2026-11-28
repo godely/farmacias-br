@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { validGtin } from 'paguemenos-cli/vtex';
+import { compareOffers } from 'paguemenos-cli/compare';
 import { compareBaskets } from './baskets.js';
-import { retailerBasket, retailerComparison, catalogInfo, catalogSnapshot, catalogType } from 'drogasil-cli/retailer-workflows';
+import { retailerBasket, catalogInfo, catalogSnapshot, catalogType } from 'drogasil-cli/retailer-workflows';
 import { compareRetailPrices, getMedicationInfo, readSnapshot } from 'drogasil-cli';
 import { providers } from './providers.js';
 
@@ -19,7 +20,7 @@ const query = z.string().trim().min(1).max(150);
 export const schemas = {
   retailers: z.strictObject({}),
   search: z.strictObject({ query, retailer: retailer.optional(), retailers: selection.optional(), page: z.number().int().min(1).max(100).default(1),
-    limit: z.number().int().min(1).max(50).default(10) }).refine(v=>!v.retailer || !v.retailers,'Use retailer ou retailers'),
+    limit: z.number().int().min(1).max(100).default(10) }).refine(v=>!v.retailer || !v.retailers,'Use retailer ou retailers'),
   suggest: z.strictObject({ query, retailer: partner.default('paguemenos'),
     declinedTerm: query.optional().describe('Previously proposed term the user declined. Return remaining suggestions.'),
     listAll: z.boolean().optional().describe('Use only when the user explicitly requests a list of terms.'),
@@ -29,7 +30,8 @@ export const schemas = {
     args => [args.sku,args.skus,args.gtin].filter(Boolean).length === 1, 'Informe SKU, SKUs ou GTIN'),
   stores: z.strictObject({retailer, ...location,
     page:z.number().int().positive().default(1), limit:z.number().int().min(1).max(100).default(20)}),
-  compare: z.strictObject({retailer:partner, query, includeGenerics:z.boolean()}),
+  compare: z.strictObject({retailer:partner, query, includeGenerics:z.boolean(), ...location})
+    .refine(v=>!(v.zipcode && v.coordinates),'Informe apenas uma origem'),
   basket: z.strictObject({retailer:partner, zipcode, items:z.array(z.strictObject({sku,
     sellerId:z.string().trim().min(1).max(100).optional(), quantity:z.number().int().min(1).max(1000).default(1)})).min(1).max(20)}),
   baskets: z.strictObject({retailers:selection,zipcode,items:z.array(z.strictObject({gtin:z.string().refine(validGtin),quantity:z.number().int().min(1).max(1000).default(1),sellers:z.partialRecord(retailer,z.string()).optional()})).min(1).max(20)}),
@@ -49,7 +51,7 @@ export function listRetailers() {
     capabilities:{batchSku:true, exactGtin:true, medicationInfo:'catalog', catalogSnapshots:true,
       stockOrigin:['cep','coordinates'], directoryScope:providers[id].directoryScope??'national',
       storeDirectory:typeof providers[id].stores === 'function', nearestBranch:id === 'drogasil', exactBranchQuantity:id === 'drogasil',
-      purchasePlan:id === 'drogasil', equivalentPresentations:id === 'drogasil' ? 'native' : 'verified_barcode_bridge',
+      namedBasket:true, locationAwareComparison:true, purchasePlan:id === 'drogasil', equivalentPresentations:id === 'drogasil' ? 'native' : 'verified_barcode_bridge',
       basket:id === 'drogasil' ? 'branch_plan' : 'joint_fulfillment_quote'},
     priceEvidence: stockEvidence[id] === 'fulfillment_quote' ? 'cep_quote_if_fulfillable' : 'online_or_reference' }));
 }
@@ -204,7 +206,7 @@ export const operations = { retailers: listRetailers, search: searchCatalog, sug
     const all = retailer === 'drogasil' ? await source.stores() : await source.stores(coordinates??zipcode);
     return {retailerId:retailer, scope:source.directoryScope??'national', total:all.length, page, stores:all.slice((page-1)*limit,page*limit)};
   },
-  compare: args => retailerComparison(args, providers[args.retailer]),
+  compare: args => compareOffers(args, providers[args.retailer]),
   basket: args => retailerBasket(args, providers[args.retailer]),
   snapshot: args => catalogSnapshot(args,providers[args.retailer]),
   read_snapshot: ({runId,...page}) => readSnapshot(runId,page) };

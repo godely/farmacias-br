@@ -5,14 +5,15 @@ import { z } from 'zod';
 import { createRequire } from 'node:module';
 const { version } = createRequire(import.meta.url)('../package.json');
 import { registerDrogasilTools } from 'drogasil-cli/mcp-tools';
-import { retailPartners } from './providers.js';
+import { quoteShoppingList } from 'paguemenos-cli/plan';
+import { providers, retailPartners } from './providers.js';
 import { operations, request, schemas } from './index.js';
 
 const descriptions = {
   retailers: 'List supported Brazilian retailers and the stock and price evidence each can provide.',
   search: 'Search exactly the selected catalogs without a CEP. For a medication name confirmation, ask only confirmation.question verbatim. Stop for the reply. Sim accepts that single term: call pharmacy_search with onYes. Não: call pharmacy_suggest with onNo and show the remaining terms. Use activeIngredients and ingredientEvidence for ingredient questions. Return products only for the requested retailer.',
   suggest: 'Suggest a search term for Pague Menos or Drogaria São Paulo. Always supply the requested retailer. Return suggestions without products or CEP. Ask only confirmation.question and wait. Sim: call pharmacy_search with onYes. Não: call this tool with onNo, list the remaining terms, and wait for a selection. If none remain, ask for another spelling. Use listAll only on an explicit request for all suggestions.',
-  compare: 'Compare presentations in one named partner catalog without a CEP. Send a local SKU or a name, after settling brand/generic preference. Show the requested product first, then only generics verified against the reference presentation and the local barcode. Incomplete presentation or partial results can limit the list.',
+  compare: 'Compare presentations in the selected partner catalog. For prices alone omit location. For local availability pass the shared CEP or coordinates in this call. After settling brand/generic preference, show the requested product first, then verified generics. Report checkout pickup and delivery evidence. closestQuotedPickup ranks the returned pickup options with known distances. Exact branch quantity remains unknown.',
   basket: 'Check the whole selected basket at one partner retailer in one call. Supply exact local SKUs, quantities and shared CEP. For multiple sellers ask which to use. Pague Menos and São Paulo use a single fulfillment simulation. Only commonPickupPoints apply to all items. A fewest-stores or shortest-route plan is available for Drogasil only.',
   baskets: 'Compare whole baskets of the same GTINs and quantities at exactly the selected retailers. Send the whole basket once. Report complete CEP-verified product subtotals separately from Drogasil catalog estimates, and report missing items and fees.',
   stores: 'Page through the named retailer’s branch directory. Pague Menos needs a shared CEP or coordinates. Directory membership alone gives no evidence of shelf stock, distance order or pickup availability.',
@@ -74,6 +75,19 @@ export function createServer(monitor = null) {
   } : server;
   registerDrogasilTools({
     registerTool(name, options, handler) {
+      if (name === 'plan_purchase') {
+        const description = 'Check a named or exact-SKU basket in one call after generic preferences are settled. Set retailer for the requested chain. Drogasil reports physical branch quantities and route plans. Pague Menos and Drogaria São Paulo verify fulfillment for selected quantities, report unresolved presentations and common pickup options. For those chains physical stock, fixed closest branch, 25 km inventory and optimized routes remain unverified. ' + options.description;
+        return registry.registerTool(name, {...options, description,
+          inputSchema: {...options.inputSchema, retailer:z.enum(['drogasil','paguemenos','drogariasaopaulo']).optional()}},
+        async ({retailer='drogasil', ...args},extra) => {
+          if (retailer==='drogasil') return handler(args,extra);
+          if (args.store || args.expandSearch) return toolReply(name,args,{retailerId:retailer,status:'branch_inventory_unverified',
+            reason:'A rede confirma retirada para a quantidade pedida. O estoque físico de cada filial é desconhecido.'});
+          const items=args.items.map(({selectedSku,quantity=1,...rest})=>({...rest,sku:selectedSku,quantity}));
+          const result=await quoteShoppingList(retailer,providers[retailer],items,args.origin.zipcode??args.origin);
+          return toolReply(name,args,result);
+        });
+      }
       if (name==='compare_pharmacy_prices') {
         return registry.registerTool(name,{...options,inputSchema:{...options.inputSchema,retailers:schemas.baskets.shape.retailers.optional()},
           description:descriptions.prices},async args=>toolReply('prices',args,await request('prices',args)));

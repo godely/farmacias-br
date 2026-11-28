@@ -103,7 +103,7 @@ test('MCP exposes one question, routes yes to the named retailer and excludes th
 
 test('bounded and strict public inputs', async () => {
   for (const [operation, input] of [
-    ['constructor',{}],['search',{query:' '}],['search',{query:'x',limit:51}],['search',{query:'x',retailer:'other'}],
+    ['constructor',{}],['search',{query:' '}],['search',{query:'x',limit:101}],['search',{query:'x',retailer:'other'}],
     ['stock',{retailer:'drogasil',sku:'1',zipcode:'00000-000'}],['stock',{retailer:'drogasil',sku:'1',zipcode:'01001000',quantity:-2}],
     ['product',{sku:'2'}],['retailers',{zipcode:'private'}],['prices',{query:'x',zipcode:'wrong'}],
   ]) await assert.rejects(request(operation,input));
@@ -141,6 +141,14 @@ test('CLI, HTTP, HTTP MCP and stdio MCP expose the same registry', async t => {
       assert.equal(tools.find(t=>t.name==='pharmacy_snapshot').annotations.readOnlyHint,false);
       assert.equal(tools.find(t=>t.name==='pharmacy_basket').annotations.readOnlyHint,true);
       assert.deepEqual((await client.callTool({name:'pharmacy_retailers',arguments:{}})).structuredContent.retailers,listRetailers());
+      assert.ok(tools.find(t=>t.name==='plan_purchase').inputSchema.properties.retailer);
+      for(const retailer of ['paguemenos','drogariasaopaulo']) {
+        const noInventory=await client.callTool({name:'plan_purchase',arguments:{
+          retailer,items:[{query:'1',selectedSku:'1'}],origin:{zipcode:'01001000'},store:'nearest',
+        }});
+        assert.equal(noInventory.structuredContent.retailerId,retailer);
+        assert.equal(noInventory.structuredContent.status,'branch_inventory_unverified');
+      }
       assert.ok((await client.callTool({name:'pharmacy_stock',arguments:{sku:'1'}})).isError);
     } finally {await client.close()}
   }
