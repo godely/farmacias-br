@@ -41,5 +41,25 @@ try {
     assert.ok(!data.crossRetailerPlans?.plans?.length && !result.pickupPlans?.plans?.length);
     console.log(name,table.comparisonOptions.length,'ofertas,',pickup.length,'com retirada;',pickup.join(' / '));
   }
+  const alongside=await client.callTool({name:'plan_purchase',arguments:{
+    retailers:['paguemenos','drogariasaopaulo'],origin:{zipcode},items:[{query,quantity:1,includeGenerics:true}],
+  }},undefined,{timeout:240000});
+  assert.ok(!alongside.isError,alongside.content?.[0]?.text);
+  const data=alongside.structuredContent;
+  assert.deepEqual(data.results.map(row=>row.retailerId),['paguemenos','drogariasaopaulo']);
+  const [absent,listed]=data.results.map(row=>row.tables[0]);
+  assert.equal(absent.requestedBrand.status,'no_exact_catalog_match');
+  assert.equal(listed.requestedBrand.status,'listed');
+  assert.ok(listed.choices.length && listed.choices.every(o=>/sinvasmax/i.test(o.name)));
+  assert.ok(listed.comparisonOptions.length);
+  for (const option of listed.comparisonOptions) {
+    assert.equal(option.role,'presentation_comparison');
+    assert.equal(option.branchQuantity,null);
+    assert.equal(option.requestedQuantity,1);
+  }
+  for (const plan of data.crossRetailerPlans?.plans ?? []) {
+    for (const stop of plan.stops) for (const pickup of stop.pickups) assert.match(pickup.name,/sinvasmax/i);
+  }
+  console.log('Drogaria São Paulo:',listed.choices[0].name,'primeiro;',listed.comparisonOptions.length,'genéricos comparados separadamente.');
   console.log('MCP',client.getServerVersion().version);
 } finally { await client.close(); }

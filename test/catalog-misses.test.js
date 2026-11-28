@@ -78,3 +78,11 @@ test('registered presentation comparisons show independently quoted generics out
   assert.match(result.registeredComparisonGuidance,/similar prescrito/);
   assert.doesNotMatch(result.registeredComparisonGuidance,/sem estoque/);
 });
+
+test('a registered comparison beside a listed brand identifies the brand as found',()=>{
+  const table={query:'Marca',registeredPresentation:{category:'Similar'},comparisonOptions:[{name:'Genérico'}],
+    requestedBrand:{name:'Marca',status:'listed'},status:'fulfillable'};
+  const reply=shoppingReply({structuredContent:{retailerId:'drogariasaopaulo',tables:[table]}}).structuredContent;
+  assert.match(reply.registeredComparisonGuidance,/Drogaria São Paulo · Marca · marca encontrada/);
+  assert.doesNotMatch(reply.registeredComparisonGuidance,/caixa da marca não encontrada/);
+});
