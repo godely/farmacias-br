@@ -17,6 +17,8 @@ The APIs reported 93 decisions each with no transport failures. Using the report
 
 Both providers picked a wrong candidate five times across the two suites. On real titles OpenAI's three misses asked for clarification when there was no matching candidate. Jev once selected regular 500 mg Novalgina tablets for a request explicitly requiring an effervescent presentation, with no matching effervescent candidate. In the synthetic suite, Jev selected prednisona for an ambiguous prefix shared with prednisolona in both orders. A ranker can propose a clarification. The catalog resolver still needs to enforce brand, ingredient, strength, form, release and pack constraints, distinguish a missing result from an ambiguous one and handle an unavailable provider. These pairs and repeated orders are a small convenience sample.
 
+The [name-recovery benchmark](../../benchmarks/names/README.md) covers the preceding step, including candidate retrieval, ambiguous prefixes and the production local resolver. The two studies use different tasks and denominators.
+
 ## Reproduce
 
 With Node 20 or newer, run the following from the repository root. The offline mode constructs all requests without contacting an API.

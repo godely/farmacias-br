@@ -15,6 +15,8 @@ Em 28 de novembro de 2026, o Farmácias BR comparou seu resolvedor local com o O
 
 **Onde o sistema perde nomes.** Em cinco das oito grafias difíceis, a recuperação de candidatos em produção devolveu uma lista vazia. O nome correto estava disponível em 31 de 36 cenários de identidade definida que usavam a recuperação real. Um serviço limitado aos nomes documentados só pode ajudar se o nome estiver nessa lista. Para “dexa”, a seleção local também sugeriu um único ingrediente em um caso rotulado como ambíguo. A prioridade é melhorar a recuperação e permitir que a pessoa escolha entre alternativas plausíveis. A verificação de forma, dose, liberação, embalagem e oferta continua necessária após a confirmação do nome.
 
+O [teste de seleção de apresentações](../../scripts/name-resolution/README.md) mede outra etapa. Com títulos reais das três redes, houve uma troca indevida de apresentação pelo Jev em 32 decisões. A seleção do nome e a verificação da apresentação precisam de testes próprios.
+
 ## Como o teste foi feito
 
 - Fixamos 66 cenários com 55 consultas sintéticas distintas. Há nomes exatos, prefixos, traduções, transposições, erros fortes de grafia, nomes parecidos e inventados. Alguns termos reaparecem com outra lista para isolar o efeito da recuperação.
