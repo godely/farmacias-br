@@ -6,6 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
 import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import {createRetailer} from 'paguemenos-cli/vtex';
 import {providers} from '../src/providers.js';
 
 const ceps=process.argv.slice(2);
@@ -36,12 +37,14 @@ try {
     const [directory,offers]=await Promise.all([source.stores(cep),source.byGtin(presentation)]);
     const [branch]=directory.filter(s=>Number.isFinite(s.distanceKm)).sort((a,b)=>a.distanceKm-b.distanceKm || a.id.localeCompare(b.id));
     assert.ok(branch && offers.length);
+    const checkout = createRetailer({name:source.name,site:source.site});
     const direct=new Map();
     for(const offer of offers) {
-      const quote=await source.local(offer,cep,1);
-      const pattern=retailer==='paguemenos' ? new RegExp('^paguemenos0*'+branch.id+'_','i') :
-        new RegExp('^(?:drogariasaopaulo|drogariasp).*_'+branch.id+'$','i');
-      const points=quote.methods.filter(m=>m.channel==='pickup-in-point' && pattern.test(m.pickupPointId));
+      const quote=await checkout.local(offer,cep,1);
+      if (retailer==='drogariasaopaulo') assert.ok(branch.checkoutPointId, 'A filial precisa publicar sua conta e código');
+      const isBranch = id => retailer==='drogariasaopaulo' ? id===branch.checkoutPointId :
+        new RegExp('^paguemenos0*'+branch.id+'_','i').test(id);
+      const points=quote.methods.filter(m=>m.channel==='pickup-in-point' && isBranch(m.pickupPointId));
       direct.set(offer.sku+':'+offer.sellerId,points.map(p=>p.pickupPointId));
     }
     const bin=fileURLToPath(new URL('cli.js',import.meta.resolve(retailer+'-cli')));

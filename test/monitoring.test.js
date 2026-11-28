@@ -88,3 +88,14 @@ test('tracks checkout and branch evidence independently without reporting a fals
     offers:[{localStatus:'available',coverage:{allZero:true},expandedSearch:{totalStockedStores:1}}]});
   assert.equal(drug[0].outcome,'ok');
 });
+
+test('a basket with delivery and unverified pickup reports the directory issue without point or search details',()=>{
+  for(const [status,expected] of [['directory_failed','upstream_failure'],['incomplete','stock_unknown']]){
+    const args={retailer:'drogariasaopaulo',items:[{query:'private query'}]};
+    const result={tables:[{status:'fulfillable',choices:[{localStatus:'available',
+      methods:[{channel:'delivery'}],pickupVerification:{status,detail:'private point'}}]}]};
+    const [event]=observations('plan_purchase',args,result);
+    assert.equal(event.outcome,expected);
+    assert.doesNotMatch(JSON.stringify(event),/private/);
+  }
+});

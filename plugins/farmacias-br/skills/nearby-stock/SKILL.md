@@ -40,3 +40,5 @@ For “Tem paracetamol perto de mim?”, use the shared location. If the present
 Em perguntas sobre concentração, forma ou embalagem, responda aos dados pedidos e cite a ficha. Se perguntarem pelo receituário controlado, cite o campo `prescription.rule` que fundamenta `prescription.form`. Um código da loja não comprova a classificação legal. Quando faltar confirmação, diga “receituário não confirmado”.
 
 Quando a rede parceira devolver quantidade por filial com data de observação, informe a loja, a quantidade e o horário do dado. Uma oferta de retirada vale para o número de caixas pedido. Na ausência de contagem, diga «o site oferece retirada de uma caixa nessa loja» quando essa oferta estiver confirmada.
+
+Na Drogaria São Paulo, indique as filiais confirmadas nos pontos de retirada retornados. Se `pickupVerification.status` for `incomplete`, uma resposta natural é “O site confirmou retirada nestas lojas. Alguns outros pontos ficaram sem identificação.” Se for `directory_failed`, explique que a consulta à lista de filiais falhou. Uma entrega confirmada pode ser informada separadamente. Uma quantidade na prateleira exige evidência de estoque físico da filial.

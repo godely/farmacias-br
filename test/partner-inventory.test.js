@@ -49,3 +49,16 @@ for (const retailer of ['paguemenos','drogariasaopaulo']) {
     assert.equal((await lookup()).branchInventory.status,'source_failed');
   });
 }
+
+test('stock surfaces a failed branch directory even if checkout independently confirmed delivery',async()=>{
+  const source={product:async()=>[{sku:'42',name:'Teste'}]};
+  for (const [localStatus,methods,status] of [
+    ['available',[{channel:'delivery'}],'partial'],['lookup_failed',[],'source_failed']
+  ]) {
+    source.local=async row=>({...row,pickupVerification:{status:'directory_failed'},localStatus,methods});
+    const result=await getStock({retailer:'drogariasaopaulo',sku:'42',coordinates:{latitude:1,longitude:1}},{drogariasaopaulo:source});
+    assert.equal(result.status,status);
+    assert.deepEqual(result.offers[0].methods,methods);
+    assert.equal(result.offers[0].pickupVerification.status,'directory_failed');
+  }
+});
