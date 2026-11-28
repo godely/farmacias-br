@@ -1,7 +1,7 @@
 import { searchCatalogPage } from 'drogasil-cli/catalog-search';
 import { isDcbName, medicationIntent } from 'drogasil-cli/medication-catalog';
 import {
-  getMedicationInfo, getProductsBySku, getStoreDirectory, listStores, productInfo, resolveMedication, searchProducts, searchStockWindows, stockQuantity,
+  compareProducts, getMedicationInfo, getProductsBySku, getStoreDirectory, listStores, productInfo, resolveMedication, searchProducts, searchStockWindows, stockQuantity,
 } from 'drogasil-cli';
 import { retailer as pagueMenos, searchVerifiedCatalog } from 'paguemenos-cli';
 import { retailer as saoPaulo } from 'drogariasaopaulo-cli';
@@ -18,9 +18,34 @@ function catalogRow(hit) {
   };
 }
 
+export async function compareDrogasil({query, includeGenerics, coordinates, zipcode, store, expandSearch}, compare = compareProducts) {
+  const origin = coordinates ?? (zipcode ? {zipcode} : null);
+  const data = await compare(query, {origin, store, includeGenerics, expandSearch, resolveNames:true, includeUnpriced:true});
+  const requested = new Set(data.requestedBrandSkus ?? data.referenceSkus ?? (/^\d+$/.test(query) ? [query] : []));
+  const convert = hit => {
+    const {facts, ...row} = catalogRow(hit);
+    const stores = hit.stores?.map(branch => ({
+      id:String(branch.id), name:branch.businessName, address:branch.address, distanceKm:branch.distanceKMFromSearch != null && Number.isFinite(Number(branch.distanceKMFromSearch))
+        ? Number(branch.distanceKMFromSearch) : null,
+      quantity:branch.quantity, isOpen:branch.branchService?.isOpen, ...(branch.phone && {phone:branch.phone}),
+    }));
+    return {...row, retailerId:'drogasil',
+      role:requested.size && !requested.has(row.sku) && row.type === 'Genérico' ? 'generic' : 'requested',
+      ...(stores && {stores, closestStore:stores[0] ?? null, branchQuantity:stores[0]?.quantity ?? null, stockStatus:hit.stockStatus})};
+  };
+  const products = (data.products ?? []).map(convert);
+  const fixed = store ? products.find(row=>row.closestStore)?.closestStore : null;
+  return {...data, retailerId:'drogasil', products,
+    ...(data.candidates && {candidates:data.candidates.map(convert)}),
+    ...(data.groups && {groups:data.groups.map(group=>group.map(convert))}),
+    ...(origin && {stockEvidence:'branch_quantity'}),
+    ...(store && {fixedStore:{selector:store,status:fixed?'identified':'store_unconfirmed',branch:fixed ?? null}})};
+}
+
 const drogasil = {
   name: 'Drogasil',
   info: getMedicationInfo,
+  compare:compareDrogasil,
   stores: listStores,
   directory: getStoreDirectory,
   async search(query, page, limit) {

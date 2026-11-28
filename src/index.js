@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { validGtin } from 'paguemenos-cli/vtex';
 import { inventoryConfig, lookupBranchStock } from 'paguemenos-cli/branch-inventory';
-import { compareOffers } from 'paguemenos-cli/compare';
+import { compareSelection } from './presentation-comparisons.js';
 import {planSelectedBaskets, purchaseSchema} from './named-baskets.js';
 import { compareBaskets } from './baskets.js';
 import { retailerBasket, retailerComparison, catalogInfo, catalogType, requestsDrops } from 'drogasil-cli/retailer-workflows';
@@ -39,7 +39,9 @@ export const schemas = {
     page:z.number().int().positive().default(1), limit:z.number().int().min(1).max(100).default(20)})
     .refine(v => Boolean(v.retailer) !== Boolean(v.retailers),'Selecione a rede ou as redes')
     .refine(v => !(v.zipcode && v.coordinates),'Informe apenas uma origem'),
-  compare: z.strictObject({retailer:partner, query, includeGenerics:z.boolean(), store:z.union([z.literal('nearest'),sku]).optional(), expandSearch:z.boolean().optional(), ...location})
+  compare: z.strictObject({retailer:retailer.optional(), retailers:selection.optional(), query, includeGenerics:z.boolean(), store:z.union([z.literal('nearest'),sku]).optional(), expandSearch:z.boolean().optional(), ...location})
+    .refine(v=>!v.retailer || !v.retailers || /^\d+$/.test(v.query), 'Para um nome, selecione retailer ou retailers')
+    .refine(v=>!v.store || v.store==='nearest' || (v.retailers?.length ?? (v.retailer ? 1 : retailerIds.length))===1, 'Selecione uma rede para uma filial específica')
     .refine(v=>!v.expandSearch || (!v.store && Boolean(v.zipcode || v.coordinates)), 'Ampliar exige localização e busca entre lojas')
     .refine(v=>!v.store || Boolean(v.zipcode || v.coordinates),'Informe a localização para escolher a filial')
     .refine(v=>!(v.zipcode && v.coordinates),'Informe apenas uma origem'),
@@ -331,11 +333,15 @@ export async function storeDirectories(args, sources = providers) {
   return {retailers, page, limitPerRetailer:limit, status:states.size === 1 ? results[0].status : 'partial', results};
 }
 
+export function comparePresentations(input, dependencies) {
+  return compareSelection(schemas.compare.parse(input), dependencies);
+}
+
 export const operations = { plan: planSelectedBaskets, retailers: listRetailers, search: searchCatalog, suggest: suggestTerms, product: getProduct,
   stock: getStock, prices: comparePrices, info: medicationInfo,
   baskets: args => compareBaskets(args,providers),
   stores: storeDirectories,
-  compare: args => compareOffers(args, providers[args.retailer]),
+  compare: comparePresentations,
   basket: args => retailerBasket(args, providers[args.retailer]),
   snapshot: args => startSnapshots(args,providers),
   read_snapshot: ({runId,...page}) => readSnapshot(runId,page) };
@@ -343,7 +349,7 @@ export async function request(operation, input) {
   if (!Object.hasOwn(operations, operation)) throw new TypeError('Operação desconhecida');
   const args = schemas[operation].parse(input);
   if (['prices','compare','info'].includes(operation)) {
-    const scope = operation === 'prices' || args.retailers ? {retailers:args.retailers ?? retailerIds} : {retailer:args.retailer};
+    const scope = operation === 'prices' || args.retailers || (operation === 'compare' && !args.retailer) ? {retailers:args.retailers ?? retailerIds} : {retailer:args.retailer};
     const pending = await clarifyLookup('pharmacy_' + operation, args, scope);
     if (pending) return pending;
   }
