@@ -1,4 +1,5 @@
 import {describePickupStop, describePlanDifference} from 'paguemenos-cli/pickup-plans';
+import {publishedAddress} from './stock-coverage.js';
 import {clarifyLookup} from './name-choices.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
@@ -102,6 +103,29 @@ export function toolReply(name, args, value) {
 const currency = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
 const retailerNames = {drogasil:'Drogasil',paguemenos:'Pague Menos',drogariasaopaulo:'Drogaria São Paulo'};
 
+const addressGuidance = 'Ao identificar uma filial, transcreva o endereço publicado. Preserve abreviações de bairro e omita componentes ausentes.';
+
+function expandedGuidance(wider) {
+  const lines = ['Busca ampliada até ' + wider.radiusKm + ' km em linha reta.'];
+  if (Number.isSafeInteger(wider.checkedStores)) lines.push('Filiais consultadas nesse alcance: ' + wider.checkedStores + '.');
+  const stores = wider.stores;
+  if (!wider.partial && Number.isSafeInteger(wider.totalStockedStores)) {
+    const n = wider.totalStockedStores;
+    lines.push(n + (n === 1 ? ' filial atendeu' : ' filiais atenderam') + ' à quantidade pedida de pelo menos uma opção.');
+    if (n > stores.length) lines.push('Listando as ' + stores.length + ' mais próximas.');
+  } else {
+    lines.push('O total de filiais com a quantidade pedida ficou sem confirmação. Mostre apenas as disponibilidades confirmadas.');
+  }
+  lines.push(addressGuidance);
+  for (const store of stores) {
+    const address = store.publishedAddress ?? publishedAddress(store.address);
+    const label = [retailerNames[store.retailerId],store.name,address].filter(Boolean).join(' — ');
+    lines.push(label);
+  }
+  lines.push('Informe os itens e as quantidades das filiais listadas. Uma filial omitida pode ter quantidade inferior à pedida. Recomende ligar antes de sair.');
+  return lines.join('\n');
+}
+
 function itineraryText(result) {
   if (!result?.plans?.length) return null;
   const text = ['Cesta completa. Cada filial visitada conta como uma parada. Use a ordem abaixo.'];
@@ -134,13 +158,15 @@ export function shoppingReply(response) {
   const data = response.structuredContent;
   if (!data) return response;
   const guidance = {};
+  const wider = data.expandedSearch ?? data.purchase?.expandedSearch;
+  if (wider) guidance.expandedGuidance = expandedGuidance(wider);
   const outcomes = data.results ?? [data];
   if (outcomes.some(row => row.tables?.some(needsPresentationChoice))) guidance.presentationGuidance = presentationGuidance;
   if (data.storeScope !== 'fixed_branch' && outcomes.some(row => row.coverage || row.planningScope === 'one_pack_alternatives')) guidance.priceGuidance = priceGuidance;
   if (outcomes.some(row => row.fixedStore)) {
     guidance.fixedStoreGuidance = 'A consulta à filial escolhida terminou. Responda agora sobre essa filial e encerre o turno. Verifique outra loja apenas se a pessoa solicitar essa busca. Não faça outra chamada para procurar uma alternativa por iniciativa própria. Use o nome e endereço em fixedStore.branch. Para offered, diga “Segundo o site, dá para retirar a quantidade pedida nessa loja”. Para not_offered, diga que o site não ofereceu retirada nessa loja. Para unconfirmed ou lookup_failed, informe que a retirada ficou sem confirmação. Se faltarem distâncias, limite a afirmação de proximidade às lojas com distância conhecida.';
   }
-  if (data.checkedRetailers && data.scope === 'whole_basket_per_retailer') {
+  if (!wider && data.checkedRetailers && data.scope === 'whole_basket_per_retailer') {
     guidance.retailerGuidance = data.coverage?.canExpand
       ? 'A consulta local confirmou zero em todas as redes selecionadas. Informe a cobertura e pergunte se a pessoa quer ampliar para 25 km. Aguarde a resposta.'
       : 'Responda com os resultados locais das redes selecionadas e encerre a busca. Informe a disponibilidade confirmada e qualquer informação pendente.';
@@ -161,7 +187,7 @@ export function shoppingReply(response) {
 
 export function createServer(monitor = null) {
   const server = new McpServer({ name: 'farmacias-br', version }, {
-    instructions: purchaseDescription + ' ' + productNames + ' ' + pickupGuidance + ' Use pharmacy_* tools for Pague Menos and Drogaria São Paulo. For their factual questions call pharmacy_info without a CEP. For a brand shopping request settle generic preference first. A named shopping list or a returning shopper’s selection goes straight to plan_purchase. Use the returned itinerary to answer. For fixed-store shopping use plan_purchase with store=nearest for any chain. Drogasil reports shelf quantities and supports 25 km expansion.'
+    instructions: purchaseDescription + ' ' + productNames + ' ' + pickupGuidance + ' ' + addressGuidance + ' Use pharmacy_* tools for Pague Menos and Drogaria São Paulo. For their factual questions call pharmacy_info without a CEP. For a brand shopping request settle generic preference first. A named shopping list or a returning shopper’s selection goes straight to plan_purchase. Use the returned itinerary to answer. For fixed-store shopping use plan_purchase with store=nearest for any chain. Drogasil reports shelf quantities and supports 25 km expansion.'
   });
   const registry = {
     registerTool(name, options, handler) {
@@ -186,7 +212,10 @@ export function createServer(monitor = null) {
         return registry.registerTool(name, {...options, description}, async (args, extra) => {
           const pending = await clarifyLookup(name, args, {retailer:'drogasil'});
           if (pending) return toolReply(name, args, {...pending, ...(name === 'search_products' && {products:[], page:args.page})});
-          if (name !== 'search_products') return handler(args, extra);
+          if (name !== 'search_products') {
+            const response = await handler(args,extra);
+            return response.structuredContent?.expandedSearch ? shoppingReply(response) : response;
+          }
           const {products, pages} = await providers.drogasil.searchCatalogPage(args.query, args.page, args.limit);
           return toolReply(name, args, {
             status:products.length ? 'matches' : 'no_reference', page:args.page, pages,
@@ -198,14 +227,18 @@ export function createServer(monitor = null) {
       }
       const shared = name==='read_catalog_snapshot';
       const description = shared ? options.description : 'Drogasil only. ' + options.description;
-      return registry.registerTool(name,{...options,description},handler);
+      return registry.registerTool(name,{...options,description},name === 'find_nearby_stock' ? async (args,extra) => {
+        const response = await handler(args,extra);
+        return response.structuredContent?.expandedSearch ? shoppingReply(response) : response;
+      } : handler);
     },
   }, z, retailPartners);
   for (const [name, description] of Object.entries(descriptions)) {
     registry.registerTool('pharmacy_' + name, { description, inputSchema: schemas[name],
       annotations: { readOnlyHint: name !== 'snapshot', destructiveHint: false, openWorldHint: !['retailers','read_snapshot'].includes(name) } }, async args => {
       const value = await request(name, args);
-      return toolReply(name, args, value);
+      const response = toolReply(name,args,value);
+      return value.expandedSearch || value.purchase?.expandedSearch ? shoppingReply(response) : response;
     });
   }
   return server;
