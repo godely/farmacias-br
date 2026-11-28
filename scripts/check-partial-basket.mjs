@@ -25,6 +25,12 @@ const file = name => fileURLToPath(new URL('../bin/'+name+'.js',import.meta.url)
 
 function verify(result,label) {
   assert.deepEqual(result.checkedRetailers,retailers);
+  for (const chain of result.results) {
+    const missingPack = chain.catalogMisses?.find(miss=>miss.item===3);
+    assert.equal(missingPack?.retailerId,chain.retailerId,'Rever o catálogo e a apresentação em '+chain.retailerId);
+    assert.equal(missingPack.name,items[3].query);
+    assert.equal(missingPack.branchStock,'unverified');
+  }
   const basket=result.crossRetailerPlans ?? result.results[0].pickupPlans;
   assert.equal(basket.status,'no_complete_plan_verified');
   assert.deepEqual(basket.plans,[]);

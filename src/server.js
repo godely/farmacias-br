@@ -189,13 +189,29 @@ export function shoppingReply(response) {
     const reply = singlePickupReply(data);
     if (reply) guidance.suggestedPickupReply = reply;
   }
-  if (outcomes.some(row => row.tables?.some(t => t.status === 'requested_brand_not_found'))) {
-    guidance.manufacturerGuidance = 'Diga “Não encontrei essa apresentação do fabricante no catálogo consultado”. A consulta descreve os resultados observados. O estoque físico dessa caixa está a confirmar. Preserve a preferência e encerre a resposta. Use a URL apenas como link da fonte.';
+  const misses = outcomes.flatMap(row => row.catalogMisses ?? []);
+  const onlyCatalogMisses = outcomes.length > 0 && outcomes.every(row =>
+    row.catalogMisses?.length > 0 && row.catalogMisses.length === row.tables?.length);
+  if (misses.length) {
+    const names = new Map();
+    for (const miss of misses) {
+      if (!names.has(miss.item)) names.set(miss.item, {name:miss.name, retailers:[]});
+      const qualifier = miss.reason === 'requested_brand_not_found' ? ' (marca ou fabricante solicitado)' : '';
+      names.get(miss.item).retailers.push(retailerNames[miss.retailerId] + qualifier);
+    }
+    const details = [...names.values()].map(({name,retailers}) =>
+      name + ' — sem correspondência confirmada nos resultados de ' + retailers.join(', ') + '.');
+    guidance.catalogMissGuidance = details.join(' ') + ' O estoque dessas apresentações ficou sem confirmação. Limite a resposta às embalagens pedidas. Aguarde um pedido da pessoa para pesquisar ou cotar uma alternativa.';
   } else if (outcomes.some(row => row.tables?.some(t => t.status === 'no_match'))) {
-    guidance.catalogMissGuidance = 'Diga “Não encontrei essa apresentação no catálogo consultado”. A rede pode ter outras ofertas fora dos resultados verificados. O estoque físico dessa caixa está a confirmar.';
+    guidance.catalogMissGuidance = 'Não encontrei essa apresentação no catálogo consultado. O estoque dessa apresentação ficou sem confirmação.';
+  }
+  if (outcomes.some(row => row.tables?.some(t => t.status === 'requested_brand_not_found'))) {
+    guidance.manufacturerGuidance = 'Diga “Não encontrei essa apresentação do fabricante no catálogo consultado”. Preserve a preferência nesse item. Use a URL apenas como link da fonte.';
   }
   if (outcomes.some(row => row.tables?.some(needsPresentationChoice))) guidance.presentationGuidance = presentationGuidance;
-  if (data.storeScope !== 'fixed_branch' && outcomes.some(row => row.coverage || row.planningScope === 'one_pack_alternatives')) guidance.priceGuidance = priceGuidance;
+  if (data.storeScope !== 'fixed_branch' && outcomes.some(row =>
+    row.lowestPricedPickup || row.tables?.some(table => table.lowestPricedStockedOption) ||
+    row.purchase?.tables?.some(table => table.lowestPricedStockedOption))) guidance.priceGuidance = priceGuidance;
   if (outcomes.some(row => row.fixedStore)) {
     guidance.fixedStoreGuidance = 'A consulta à filial escolhida terminou. Responda agora sobre essa filial e encerre o turno. Verifique outra loja apenas se a pessoa solicitar essa busca. Não faça outra chamada para procurar uma alternativa por iniciativa própria. Use o nome e endereço em fixedStore.branch. Para offered, diga “Segundo o site, dá para retirar a quantidade pedida nessa loja”. Para not_offered, diga que o site não ofereceu retirada nessa loja. Para unconfirmed ou lookup_failed, informe que a retirada ficou sem confirmação. Se faltarem distâncias, limite a afirmação de proximidade às lojas com distância conhecida.';
   }
@@ -210,6 +226,7 @@ export function shoppingReply(response) {
     guidance.nextAction = basket.partialBasket ? 'answer_with_partial_basket' : 'answer_with_plan';
     guidance.itineraryGuidance = 'Informe a filial e o endereço por item e o subtotal estimado. Quando houver uma comparação calculada, explique a economia, a mudança de paradas e a diferença de percurso em linha reta. Em uma cesta parcial, indique o que ficou pendente por rede. A consulta está concluída. Preserve os avisos de cobertura parcial.';
   }
+  if (onlyCatalogMisses && !itinerary && !data.nextAction) guidance.nextAction = 'answer_with_catalog_miss';
   const notes = [itinerary,...Object.entries(guidance).filter(([key]) => key !== 'nextAction').map(([,text]) => text)].filter(Boolean);
   if (!notes.length) return response;
   const structuredContent = { ...data, ...guidance };
