@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { validGtin } from 'paguemenos-cli/vtex';
 import { retailerBasket, retailerComparison } from './retailer-shopping.js';
-import { catalogInfo, catalogSnapshot, catalogType } from './catalog-workflows.js';
+import { catalogInfo, startSnapshots, catalogType } from './catalog-workflows.js';
 import { compareRetailPrices, getMedicationInfo, readSnapshot } from 'drogasil-cli';
 import { providers, retailPartners } from './providers.js';
 
@@ -33,8 +33,11 @@ export const schemas = {
     sellerId:z.string().trim().min(1).max(100).optional(), quantity:z.number().int().min(1).max(1000).default(1)})).min(1).max(20)}),
   info: z.strictObject({retailer, queries:z.array(query).min(1).max(10),
     page:z.number().int().min(1).max(100).default(1), limit:z.number().int().min(1).max(50).default(20)}),
-  snapshot: z.strictObject({retailer, queries:z.array(query).min(1).max(10), maxItems:z.number().int().min(1).max(1000).default(20)}),
-  read_snapshot: z.strictObject({runId:z.string().uuid(), offset:z.number().int().min(0).default(0), limit:z.number().int().min(1).max(100).default(20)}),
+  snapshot: z.strictObject({retailer:retailer.optional(), retailers:z.array(retailer).min(1).max(3)
+    .refine(ids => new Set(ids).size === ids.length, 'Rede repetida').optional(),
+    queries:z.array(query).min(1).max(10), maxItems:z.number().int().min(1).max(1000).default(20)})
+    .refine(args => Boolean(args.retailer) !== Boolean(args.retailers), 'Selecione as redes para a coleta'),
+  read_snapshot: z.strictObject({runId:z.string().uuid(), offset:z.number().int().min(0).default(0), limit:z.number().int().min(1).max(1000).default(20)}),
   stock: withLocation({ retailer, sku, quantity: z.number().int().min(1).max(1000).default(1) }),
   prices: withLocation({ query, retailer: retailer.optional().describe('Retailer owning the numeric SKU in query'),
     includeGenerics: z.boolean().default(false) }),
@@ -202,7 +205,7 @@ export const operations = { retailers: listRetailers, search: searchCatalog, sug
   },
   compare: args => retailerComparison(args, providers[args.retailer]),
   basket: args => retailerBasket(args, providers[args.retailer]),
-  snapshot: args => catalogSnapshot(args,providers[args.retailer]),
+  snapshot: args => startSnapshots(args,providers),
   read_snapshot: ({runId,...page}) => readSnapshot(runId,page) };
 export async function request(operation, input) {
   if (!Object.hasOwn(operations, operation)) throw new TypeError('Operação desconhecida');

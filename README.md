@@ -97,9 +97,13 @@ farmacias compare 3530 --retailer drogariasaopaulo --generics
 farmacias basket 3179:1 1633706:2 --retailer paguemenos --cep "$CEP"
 farmacias stores --retailer drogasil --limit 5
 farmacias snapshot loratadina paracetamol --retailer drogariasaopaulo --max-items 10
+farmacias snapshot shampoo --retailers paguemenos,drogariasaopaulo --max-items 5
 farmacias read_snapshot "$RUN_ID" --limit 5
+farmacias export_snapshot "$RUN_ID" --format csv > catalogo.csv
 ```
 
 O teste de aceitação chama o MCP por stdio contra os catálogos reais, exercita os dois CEPs informados no momento do teste e descarta seu banco temporário de snapshots. Ele valida separadamente o escopo do preço, a quantidade consultada, o vendedor e a opção de retirada comum. Execute `node scripts/check-retailer-workflows.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"` com dois CEPs de teste para as cotações. O número de lojas e os preços variam.
 
 Para verificar também os executáveis dos dois pacotes parceiros publicados no GitHub, execute `node scripts/check-sibling-clis.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"`. O teste cobre busca, sugestões, SKU, informações, código de barras, estoque.
+
+A coleta em várias redes devolve uma execução independente por rede, na ordem solicitada. O limite de produtos se aplica a cada execução. Nas colunas de preço aparece a oferta do vendedor padrão identificado pela rede, ou a do único vendedor. Se vários vendedores estiverem presentes e faltar essa identificação, consulte a coluna `offers` com todas as ofertas. A disponibilidade do catálogo é online. Para verificar a coleta, leitura e exportação nas sete combinações de redes usando dados reais, execute `node scripts/check-snapshot-scopes.mjs`.

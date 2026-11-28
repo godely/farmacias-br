@@ -3,6 +3,8 @@ name: redes-e-precos
 description: Use para buscar nomes completos, incompletos ou com erros de digitação na Pague Menos e na Drogaria São Paulo, responder a confirmações de nomes e consultar produtos, preços e estoque de três redes brasileiras.
 ---
 
+Se a pessoa pedir para guardar preços, por exemplo “Guarda os preços de shampoo na Pague Menos e na Drogaria São Paulo”, inicie uma coleta com `pharmacy_snapshot` para as redes pedidas. Acompanhe cada execução com `pharmacy_read_snapshot`. Só diga que os preços foram salvos depois que a execução terminar e informe qualquer rede que falhou. Uma pergunta de compra comum usa a consulta ao vivo.
+
 Para “em qual rede sai mais barato?”, use pharmacy_prices com a apresentação pedida e o CEP compartilhado. Um SKU interno pertence a uma só rede. Informe o identificador dela junto com o SKU. Um GTIN válido identifica o pacote entre redes. Se houver mais de uma concentração, forma, liberação ou tamanho de caixa possível, apresente as opções para a pessoa escolher. Para compras por marca, pergunte uma vez se pode incluir genéricos, exceto quando a preferência já foi informada. Não misture genéricos com ofertas da mesma caixa.
 
 Ordene verifiedOffers por preço e mostre rede, vendedor, preço de venda e condições de retirada ou entrega. Os valores são por embalagem. Separe onlineOffers e use checkedRetailers da mesma resposta para dizer quais redes confirmaram atendimento para o CEP. Descreva no_exact_match como “não encontrei correspondência exata para esta caixa na consulta”. Quando nenhuma confirmar, relate esse resultado e a cobertura consultada. Se o usuário já compartilhou as coordenadas e o serviço precisa do CEP, peça apenas essa informação. Não assuma uma cidade padrão.
