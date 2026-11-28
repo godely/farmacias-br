@@ -90,6 +90,7 @@ export function compactPartnerAlternatives(result) {
     });
     return {sku, gtin, sellerId, seller, name, type, currentPrice, listPrice, currency,
       productUrl, priceScope, observedAt, localStatus, requestedQuantity, matchBasis,
+      ...(product.manufacturer && {manufacturer:product.manufacturer}),
       ...(product.pickupVerification && {pickupVerification:product.pickupVerification}),
       ...(product.pickupAtStore && {pickupAtStore:product.pickupAtStore}),
       branchQuantity:null, closestPickupPointId:product.closestQuotedPickup?.pickupPointId ?? null, methods};
