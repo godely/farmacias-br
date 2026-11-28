@@ -98,6 +98,18 @@ export function compactPartnerAlternatives(result) {
   return {...summary, tables:tables.map(table => ({...table, choices})), pickupPoints:[...pickupPoints.values()]};
 }
 
+function withCatalogMisses(retailerId, result, items) {
+  const misses = [];
+  for (const [item, table] of (result.tables ?? []).entries()) {
+    if (!['no_match','no_reference','requested_brand_not_found'].includes(table.status)) continue;
+    const requested = items[item];
+    if (!requested) continue;
+    const name = /^\d+$/.test(requested.query) ? 'Item '+(item+1) : requested.query;
+    misses.push({item, retailerId, name, reason:table.status, branchStock:'unverified'});
+  }
+  return misses.length ? {...result, catalogMisses:misses} : result;
+}
+
 export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:customPlan, clarify=nameChoices, providers:retailersById=providers}={}) {
   const {items,retailer}=args;
   const ids=selectedRetailers(args);
@@ -131,7 +143,7 @@ export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:
   const quoteSubset = (id,indices,chosen) => chosen ? plan(id,chosen,{...localArgs,fixedOffers:true}) :
     plan(id,localItems(indices.map(i=>items[i]),id),localArgs);
   if (retailer) {
-    const result = await plan(retailer,localItems(items,retailer),localArgs);
+    const result = withCatalogMisses(retailer, await plan(retailer,localItems(items,retailer),localArgs), items);
     const nativePartial = ['partial','unfilled'].includes(result.status);
     if (!planPickups || result.pendingBrands || (retailer === 'drogasil' && !nativePartial)) return result;
     const pickupPlans = await crossRetailerPlans([{...result,retailerId:retailer}],items,quoteSubset);
@@ -151,7 +163,7 @@ export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:
     try {
       const includeBranchChoices=ids.length>1 && items.length>1 && !options.store && !options.expandSearch;
       const result=await plan(id,localItems(items,id),{...options,includeBranchChoices});
-      return {...result, retailerId:id};
+      return {...withCatalogMisses(id,result,items), retailerId:id};
     } catch {
       return {retailerId:id,status:'source_failed'};
     }
@@ -189,4 +201,4 @@ export const purchaseDescription =
   'For “na minha loja mais próxima” set store to nearest and check one directory branch per selected chain. Use fixedStore for the branch identity and pickupAtStore for the outcome. A missing pickup offer at that store does not establish zero units. Once a fixed branch is checked, answer for it and finish. Check additional branches only if the shopper asks for them. For the nearest place offering pickup omit store. ' +
   'Use the manufacturer as supplied, including a short name such as “Prati”, when the shopper specifically requests it. On choose_manufacturer, ask which of the returned manufacturer names they mean. Preserve one item per requested medication, with brand choices and quantity. Retain local product selections by retailer in selectedSkus. ' +
   'For a multi-chain basket lead with a complete crossRetailerPlans plan, naming each store and what to pick up there. Empty completeRetailers only concerns each chain alone. When two plans differ, show the savings and extra stops. Compare verified product subtotals. When a table says needsSelection, ask about its unresolved presentation before using those rows in a different plan. '+
-  'When a basket is incomplete, use partialBasket to name the confirmed stops, state how many items they cover and explain the pending items by chain. Compare subtotals only when both trips cover the same items. A catalog miss leaves local stock unknown. For a multi-chain result use every retailer result including failures. For one partner chain lead with pickupPlans for its verified stores. Compare fewest stores and lowest product subtotal. Report searchLimited or failed quotes as partial coverage. Quote branch quantities only from reported stock for that branch. A partner checkout confirms pickup of the requested packs. When a branch snapshot is present, include its observation time.';
+  'When a basket is incomplete, use partialBasket to name the confirmed stops, state how many items they cover and explain the pending items by chain. Compare subtotals only when both trips cover the same items. For each catalogMisses entry, report only the requested presentation at that retailer. Its branch stock is unverified. Wait for the shopper to request another presentation before looking it up or quoting it. For a multi-chain result use every retailer result including failures. For one partner chain lead with pickupPlans for its verified stores. Compare fewest stores and lowest product subtotal. Report searchLimited or failed quotes as partial coverage. Quote branch quantities only from reported stock for that branch. A partner checkout confirms pickup of the requested packs. When a branch snapshot is present, include its observation time.';
