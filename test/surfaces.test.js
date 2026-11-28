@@ -129,6 +129,8 @@ test('CLI, HTTP, HTTP MCP and stdio MCP expose the same registry', async t => {
     const client = new Client({name:'integration',version:'1'}); await client.connect(transport);
     try {
       const {tools} = await client.listTools();
+      assert.match(client.getInstructions(), /Accept a supplied SKU silently/);
+      assert.ok(tools.every(tool => tool.description.includes('Never ask for, mention, or display a SKU')));
       const active=['drogasil','paguemenos','drogariasaopaulo'];
       assert.deepEqual(listRetailers().map(p=>p.id),active);
       for (const tool of tools) {
