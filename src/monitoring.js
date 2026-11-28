@@ -16,7 +16,7 @@ const sourceProblems = new Set(['failed', 'source_failed', 'catalog_lookup_faile
   'generic_lookup_failed', 'reference_lookup_failed', 'lookup_failed']);
 const incomplete = new Set(['incomplete_presentation', 'no_prices', 'unconfirmed_gtin', 'missing_gtin', 'presentation_unconfirmed', 'quantity_unverified']);
 const clarifications = new Set(['ambiguous', 'choose_reference', 'presentation_options', 'conflicting_release',
-  'needs_generic_preference', 'needs_name_confirmation', 'requires_retailer', 'requires_cep']);
+  'needs_generic_preference', 'needs_name_confirmation', 'requires_retailer', 'requires_cep', 'requires_origin', 'location_unconfirmed']);
 const uuid = () => randomUUID().replaceAll('-', '');
 
 function retailerId(value) {
