@@ -185,7 +185,7 @@ export function shoppingReply(response) {
     if (reply) guidance.suggestedPickupReply = reply;
   }
   if (outcomes.some(row => row.tables?.some(t => t.status === 'requested_brand_not_found'))) {
-    guidance.manufacturerGuidance = 'Diga “Não encontrei essa apresentação do fabricante no catálogo consultado”. A consulta descreve os resultados observados. O estoque físico dessa caixa está a confirmar. Preserve a preferência e aguarde uma nova escolha.';
+    guidance.manufacturerGuidance = 'Diga “Não encontrei essa apresentação do fabricante no catálogo consultado”. A consulta descreve os resultados observados. O estoque físico dessa caixa está a confirmar. Preserve a preferência e encerre a resposta. Use a URL apenas como link da fonte.';
   } else if (outcomes.some(row => row.tables?.some(t => t.status === 'no_match'))) {
     guidance.catalogMissGuidance = 'Diga “Não encontrei essa apresentação no catálogo consultado”. A rede pode ter outras ofertas fora dos resultados verificados. O estoque físico dessa caixa está a confirmar.';
   }

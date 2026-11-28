@@ -51,7 +51,7 @@ Se a pessoa pedir para guardar preços, por exemplo “Guarda os preços de sham
 
 Se a pessoa pedir a coleta padrão, omita `queries`. O padrão pesquisa paracetamol e salva até 20 produtos por rede selecionada. Se pedir para guardar preços de “esse remédio”, use o nome já combinado na conversa.
 
-Confira o tamanho da caixa no nome do produto e na quantidade publicada na ficha. Nas coletas, use também `offers[].packageQuantities` quando disponível. Um endereço de página pode conservar o nome de uma embalagem antiga. Se a ficha e o título concordarem, use essa quantidade. Se divergirem entre si, diga “embalagem a confirmar” e peça a apresentação antes de comparar preços.
+Confira o tamanho da caixa no nome do produto e na quantidade publicada na ficha. Nas coletas, use também `offers[].packageQuantities` quando disponível. Se a ficha e o título concordarem, use essa quantidade. Se divergirem entre si, diga “embalagem a confirmar” e peça a apresentação antes de comparar preços. Em perguntas de compra, use o endereço da página apenas para citar a fonte. Se a pessoa perguntar sobre palavras no endereço, explique que só a ficha documenta a embalagem atual. Atribua uma mudança de embalagem apenas a um histórico publicado pela rede.
 
 Para “tem esse remédio?”, informe uma filial por apresentação, a mais próxima que confirmou a quantidade solicitada ou ofereceu a retirada. Quando houver uma única caixa correspondente, use uma frase com o medicamento, fabricante solicitado, tipo, preço, loja e distância disponível. Use `suggestedPickupReply` quando presente. Passe as demais filiais ou opções de entrega quando a pessoa as pedir. Se o fabricante solicitado faltar, diga o que encontrou para aquela caixa e aguarde a pessoa escolher outra opção.
 
