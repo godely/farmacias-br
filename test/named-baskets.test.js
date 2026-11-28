@@ -142,7 +142,7 @@ test('partner checkout at the fixed directory branch survives MCP compaction and
     stores:async () => [{id:'2',distanceKm:3},{id:'1',distanceKm:0.4,storeName:'Centro'}],
     local:async (row, place, quantity) => {
       assert.deepEqual(place,origin);
-      return {...row,localStatus:'available',requestedQuantity:quantity,methods:[{channel:'pickup-in-point',pickupPointId:point}]};
+      return {...row,localStatus:'available',requestedQuantity:quantity,methods:[{channel:'pickup-in-point',pickupPointId:point,...(id==='drogariasaopaulo' && {directoryBranchId:'2'})}]};
     },
   }]));
   const response=await planSelectedBaskets({origin,store:'nearest',retailers:groups.map(([id])=>id),
@@ -164,7 +164,7 @@ test('when a basket splits across chains, each pickup belongs to the nearest bra
     function quote(offer,quantity) {
       const n=offer.name===names[i] ? 1 : 2;
       return {...offer,localStatus:'available',requestedQuantity:quantity,methods:[
-        {channel:'pickup-in-point',pickupPointId:prefix(n),branch:'Filial '+n,distanceKm:n}]};
+        {channel:'pickup-in-point',pickupPointId:prefix(n),...(id==='drogariasaopaulo' && {directoryBranchId:String(n)}),branch:'Filial '+n,distanceKm:n}]};
     }
     const catalog = names.map((name,index)=>({sku:String(index+1),sellerId:'1',name,currentPrice:11+index}));
     return [id,{
@@ -187,12 +187,13 @@ test('when a basket splits across chains, each pickup belongs to the nearest bra
 test('shared pickup addresses retain each offer and its individual fee', () => {
   const base={localStatus:'available',requestedQuantity:1};
   const point={channel:'pickup-in-point',pickupPointId:'one',distanceKm:0.8,address:{street:'Centro'}};
-  const products=[{...base,sku:'1',closestQuotedPickup:point,methods:[{...point,feeBRL:2}]},
+  const products=[{...base,sku:'1',pickupVerification:{status:'incomplete',unknownPoints:1},closestQuotedPickup:point,methods:[{...point,feeBRL:2}]},
     {...base,sku:'2',methods:[{...point,feeBRL:0},{channel:'delivery',feeBRL:4}]}];
   const row=compactPartnerAlternatives({planningScope:'one_pack_alternatives',products,tables:[{choices:products}]});
   assert.equal(row.pickupPoints.length,1);
   assert.equal(row.pickupPoints[0].distanceKm,0.8);
   const [first,second]=row.tables[0].choices;
+  assert.equal(first.pickupVerification.status,'incomplete');
   assert.equal(first.closestPickupPointId,'one'); assert.equal(second.closestPickupPointId,null);
   assert.equal(first.methods[0].feeBRL,2); assert.equal(second.methods[0].feeBRL,0);
   assert.equal(second.methods[1].channel,'delivery'); assert.equal(first.branchQuantity,null);

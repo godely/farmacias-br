@@ -4,6 +4,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 const origins = process.argv.slice(2);
@@ -23,7 +24,9 @@ const call = async (name,args) => {
 const codes = ['7899547543766','7896004703398'];
 const items = codes.map((gtin,i)=>({gtin,quantity:i===0?2:1}));
 try {
-  await client.connect(new StdioClientTransport({command:process.execPath,args:[fileURLToPath(new URL('server.js',root))]}));
+  const endpoint=process.env.FARMACIAS_TEST_MCP_URL;
+  await client.connect(endpoint ? new StreamableHTTPClientTransport(new URL(endpoint)) :
+    new StdioClientTransport({command:process.execPath,args:[fileURLToPath(new URL('server.js',root))]}));
   const {retailers:registry} = await call('retailers',{});
   assert.equal(registry.length,3);
   let count = 0;

@@ -199,18 +199,19 @@ export async function getStock(args, sources = providers) {
   }
   if (!rows.length) return { retailerId: retailer, evidence, status: 'unknown_sku', offers: [] };
   const offers = [];
-  let failures = 0;
   for (const row of rows) {
     try { offers.push(summary(await source.local(row, coordinates ?? zipcode, quantity, {includeAll,expandSearch,maxBranches}), retailer)); }
-    catch { failures++; offers.push({ ...summary(row, retailer), localStatus: 'lookup_failed' }); }
+    catch { offers.push({ ...summary(row, retailer), localStatus: 'lookup_failed' }); }
   }
   let config;
   let branchInventory;
+  const failures = offers.filter(row => row.localStatus === 'lookup_failed').length;
+  const incomplete = offers.some(row => row.pickupVerification && row.pickupVerification.status !== 'verified');
   try { config = inventoryConfig(retailer); }
   catch { branchInventory = {status:'source_failed', evidence:'branch_inventory_configuration_failed', stores:[]}; }
   const physicalRequested = includeAll || expandSearch || maxBranches != null;
   if (config) {
-    const canCheckWider = !failures && !offers.some(row => row.methods?.some(m =>
+    const canCheckWider = !failures && !incomplete && !offers.some(row => row.methods?.some(m =>
       row.localStatus === 'available' && m.channel === 'pickup-in-point' && m.pickupPointId));
     try {
       branchInventory = await lookupBranchStock(retailer, source, coordinates ?? zipcode, sku, config,
@@ -222,7 +223,7 @@ export async function getStock(args, sources = providers) {
   } else if (!branchInventory && physicalRequested && retailer !== 'drogasil') {
     branchInventory = {status:'unknown', evidence:'no_branch_inventory_source', stores:[]};
   }
-  return { retailerId: retailer, evidence, status: failures === rows.length ? 'source_failed' : failures ? 'partial' : 'checked', offers, ...(branchInventory && {branchInventory}) };
+  return { retailerId: retailer, evidence, status: failures === rows.length ? 'source_failed' : failures || incomplete ? 'partial' : 'checked', offers, ...(branchInventory && {branchInventory}) };
 }
 
 export async function comparePrices(args, { compare = compareRetailPrices, sources = providers } = {}) {

@@ -37,6 +37,9 @@ function queryShape(query) {
 
 function outcome(row = {}) {
   const status = row.status ?? row.state ?? row.localStatus;
+  const pickup = [row, ...(row.choices ?? [])].map(option => option?.pickupVerification?.status);
+  if (pickup.includes('directory_failed')) return 'upstream_failure';
+  if (pickup.includes('incomplete')) return 'stock_unknown';
   if (row.suggestionStatus === 'source_failed') return 'upstream_failure';
   if (row.suggestionStatus === 'suggestions') return 'clarification';
   if (row.nationalStatus === 'source_failed' || row.brazil?.lookupFailed || (status === 'partial' && row.issues?.length)) return 'upstream_failure';
