@@ -27,14 +27,14 @@ test('three exclusive brands complete a basket in three stores with one shared o
   assert.deepEqual(r.completeRetailers,[]);
   const [p]=r.crossRetailerPlans.plans;
   assert.deepEqual([p.objective,p.stopCount,p.totalBRL],['both',3,19]);
-  assert.deepEqual(p.stops.map(s=>[s.retailerId,s.pickups[0].item]),ids.map((id,i)=>[id,i]));
+  assert.deepEqual(p.stops.map(s=>[s.retailerId,s.pickups[0].item]).sort((a,b)=>a[1]-b[1]),ids.map((id,i)=>[id,i]));
 });
 
 test('one-stop price and two-chain savings use properly quoted products',async()=>{
   const r=await report(items.slice(0,2),{drogasil:lines=>drug({A:5,B:8},lines),
     paguemenos:lines=>partner({A:[7,'one'],B:[4,'one']},lines)},ids.slice(0,2));
   assert.deepEqual(r.crossRetailerPlans.plans.map(p=>[p.stopCount,p.totalBRL]),[[1,11],[2,9]]);
-  assert.deepEqual(r.crossRetailerPlans.comparison,{savingsBRL:2,extraStops:1});
+  assert.deepEqual(r.crossRetailerPlans.comparison,{savingsBRL:2,extraStops:1,extraKm:null});
 });
 
 test('separate pickup points in one chain count as two, even with an unknown price',async()=>{
@@ -75,4 +75,24 @@ test('repeated packs at a shared partner point require a quote for the sum',asyn
     if(available) assert.deepEqual([p.stopCount,p.totalBRL,p.stops[0].pickups.map(i=>i.packs)],[1,15,[1,2]]);
     else assert.equal(p,undefined);
   }
+});
+
+test('a farther branch wins when the two-stop round trip is shorter',async()=>{
+  const r=await report(items.slice(0,2),{
+    drogasil:()=>({branchChoices:[[-0.01,0.011].map((longitude,i)=>({
+      sku:'a',name:'A',packs:1,unitPriceBRL:5,
+      store:{id:String(i+1),name:i?'along the route':'opposite direction',coordinates:{latitude:0,longitude},
+        quantity:1,distanceKm:i?1.22:1.11}})),[]]}),
+    paguemenos:lines=>{
+      const r=partner({B:[4,'b']},lines);
+      for(const p of r.items??[]) for(const m of p.methods){
+        m.address={geoCoordinates:[0.012,0]};m.distanceKm=1.33;
+      }
+      return r;
+    },
+  },ids.slice(0,2));
+  const [plan]=r.crossRetailerPlans.plans;
+  assert.equal(plan.stops.find(s=>s.retailerId==='drogasil').name,'along the route');
+  assert.ok(plan.roundTripKm>2.65 && plan.roundTripKm<2.68);
+  assert.equal(plan.routeExactAmongChosenStops,true);
 });

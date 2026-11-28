@@ -57,8 +57,8 @@ function localItems(items,id) {
   });
 }
 
-async function planAtRetailer(id,items,{origin,store,expandSearch}) {
-  if (id==='drogasil') return planPurchase(items,{origin,store,expandSearch,confirmBrands:true});
+async function planAtRetailer(id,items,{origin,store,expandSearch,includeBranchChoices}) {
+  if (id==='drogasil') return planPurchase(items,{origin,store,expandSearch,includeBranchChoices,confirmBrands:true});
   if (store || expandSearch) return {
     retailerId:id, status:'branch_inventory_unverified',
     reason:'A rede confirma retirada para a quantidade pedida. O estoque físico de cada filial é desconhecido.',
@@ -109,7 +109,8 @@ export async function planSelectedBaskets(args,{resolve=resolveMedication, plan=
 
   const results=await Promise.all(ids.map(async id=>{
     try {
-      const result=await plan(id,localItems(items,id),args);
+      const includeBranchChoices=id==='drogasil' && ids.length>1 && items.length>1 && !args.store && !args.expandSearch;
+      const result=await plan(id,localItems(items,id),{...args,includeBranchChoices});
       return {...result, retailerId:id};
     } catch {
       return {retailerId:id,status:'source_failed'};
@@ -120,7 +121,7 @@ export async function planSelectedBaskets(args,{resolve=resolveMedication, plan=
     ? await crossRetailerPlans(results,items,(id,indices,combined) =>
         plan(id,combined ?? localItems(indices.map(i => items[i]),id),args)) : undefined;
   return {scope:'whole_basket_per_retailer', checkedRetailers:ids, completeRetailers,
-    results:results.map(compactPartnerAlternatives), ...(comparison && {crossRetailerPlans:comparison})};
+    results:results.map(({branchChoices,...summary}) => compactPartnerAlternatives(summary)), ...(comparison && {crossRetailerPlans:comparison})};
 }
 
 export const purchaseDescription =

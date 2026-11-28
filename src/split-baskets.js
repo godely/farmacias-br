@@ -1,3 +1,5 @@
+import {routeFinder} from 'drogasil-cli';
+
 // Each block is an independently verified visit or a retailer's joint plan.
 // Two separately quoted orders at the same branch cannot prove joint fulfillment.
 const cents = value => Number.isFinite(value) && value >= 0 ? Math.round(value * 100) : null;
@@ -12,6 +14,13 @@ function stockBlocks(result, items) {
       })),
     }));
     if (stops.length) blocks.push(stops);
+  }
+  if (result.branchChoices) {
+    for (const [item,choices] of result.branchChoices.entries()) {
+      for (const {store,...pick} of choices) blocks.push([{...store,retailerId:'drogasil',
+        pickups:[{...pick,item,reportedStock:store.quantity,evidence:'reported_branch_stock'}]}]);
+    }
+    return blocks;
   }
   for (const [i, table] of (result.tables ?? []).entries()) {
     if (table.needsSelection || !items[i]) continue;
@@ -106,11 +115,19 @@ async function collectPartnerBlocks(result, items, quoteSubset) {
   // separate visits. Bound additional outbound calls on long shopping lists.
   const limited = available.length > 12;
   if (available.length > 1 && available.length < items.length) await check(available);
+  if (available.length >= 3 && items.length <= 4) {
+    for (let j=0; j<available.length; j++) {
+      for (let k=j+1; k<available.length; k++) await check([available[j],available[k]]);
+    }
+  }
   for (const i of available.slice(0,12)) await check([i]);
   return {blocks, failures, limited};
 }
 
 function bestPlans(blocks, count) {
+  const keyOf = s => s.retailerId + ':' + s.id;
+  const stores = new Map(), coordinates = new Map();
+  const tour = routeFinder(stores,coordinates);
   const byItem = Array.from({length:count},() => []);
   for (const stops of blocks) {
     const picks = stops.flatMap(s => s.pickups);
@@ -118,7 +135,15 @@ function bestPlans(blocks, count) {
     if (!indices.length || new Set(indices).size !== indices.length || indices.some(i => i < 0 || i >= count)) continue;
     const prices = picks.map(p => cents(p.unitPriceBRL));
     const cost = prices.includes(null) ? Infinity : prices.reduce((sum,price,i) => sum + price * picks[i].packs,0);
-    const entry = {stops, indices, keys:stops.map(s => s.retailerId + ':' + s.id), cost};
+    for (const stop of stops) {
+      const key = keyOf(stop);
+      stores.set(key,stop);
+      const [longitude,latitude] = stop.address?.geoCoordinates ?? [];
+      const point = stop.coordinates ?? {longitude,latitude};
+      if (Number.isFinite(point.longitude) && Math.abs(point.longitude) <= 180 &&
+          Number.isFinite(point.latitude) && Math.abs(point.latitude) <= 90) coordinates.set(key,point);
+    }
+    const entry = {stops, indices, keys:stops.map(keyOf), cost};
     byItem[Math.min(...indices)].push(entry);
   }
   let fewest, cheapest, nodes = 0, limited = false;
@@ -126,23 +151,41 @@ function bestPlans(blocks, count) {
     for (let i=0; i<a.length; i++) if (a[i] !== b[i]) return a[i] < b[i];
     return false;
   };
+  const deadline = performance.now() + 2000;
   const usedItems = new Set(), usedStops = new Set(), selected = [];
   function visit(i,cost) {
-    if (++nodes > 50000) { limited = true; return; }
+    if (++nodes > 50000 || (nodes % 64 === 0 && performance.now() > deadline)) { limited = true; return; }
     while (usedItems.has(i)) i++;
     if (i === count) {
-      const stops = selected.flatMap(block => block.stops);
-      // Individual distances only break ties; their sum is not an itinerary.
+      const visits = new Map(), stockUsed = new Map();
+      for (const block of selected) for (const stop of block.stops) {
+        const key = keyOf(stop);
+        if (!visits.has(key)) visits.set(key,{...stop,pickups:[]});
+        for (const p of stop.pickups) {
+          if (stop.retailerId === 'drogasil') {
+            const inventoryKey = key + ':' + p.sku;
+            const needed = (stockUsed.get(inventoryKey) ?? 0) + p.packs;
+            if (needed > p.reportedStock) return;
+            stockUsed.set(inventoryKey,needed);
+          }
+          visits.get(key).pickups.push(p);
+        }
+      }
+      if (fewest && cheapest && visits.size > fewest.plan.stopCount && cost > cheapest.rank[0]) return;
+      const route = tour(visits.keys());
+      const stops = route.ids.map(id => visits.get(id));
+      const distance = route.km ?? Infinity;
       const proximity = stops.reduce((sum,s) => sum + finiteDistance(s),0);
-      const fewRank = [stops.length,proximity,cost], priceRank = [cost,stops.length,proximity];
-      const plan = {stopCount:stops.length,totalBRL:Number.isFinite(cost) ? cost/100 : null,stops};
+      const fewRank = [stops.length,distance,cost,proximity], priceRank = [cost,stops.length,distance,proximity];
+      const plan = {stopCount:stops.length,roundTripKm:route.km,routeExactAmongChosenStops:route.exact,
+        totalBRL:Number.isFinite(cost) ? cost/100 : null,stops};
       if (!fewest || ordered(fewRank,fewest.rank)) fewest = {rank:fewRank,plan};
       if (Number.isFinite(cost) && (!cheapest || ordered(priceRank,cheapest.rank))) cheapest = {rank:priceRank,plan};
       return;
     }
     for (const block of byItem[i]) {
       if (limited) break;
-      if (block.indices.some(j => usedItems.has(j)) || block.keys.some(k => usedStops.has(k))) continue;
+      if (block.indices.some(j => usedItems.has(j)) || block.keys.some(k => !k.startsWith('drogasil:') && usedStops.has(k))) continue;
       block.indices.forEach(j => usedItems.add(j));
       block.keys.forEach(k => usedStops.add(k));
       selected.push(block);
@@ -167,9 +210,10 @@ export async function crossRetailerPlans(results, items, quoteSubset) {
   const comparison = cheapest && fewest?.totalBRL != null && fewest !== cheapest ? {
     savingsBRL:(cents(fewest.totalBRL)-cents(cheapest.totalBRL))/100,
     extraStops:cheapest.stopCount-fewest.stopCount,
+    extraKm:cheapest.roundTripKm == null || fewest.roundTripKm == null ? null : cheapest.roundTripKm-fewest.roundTripKm,
   } : null;
   return {status:plans.length ? 'complete' : 'no_complete_plan_verified',
-    scope:'verified_pickup_and_branch_plans',feesIncluded:false, plans, comparison,
+    scope:'verified_pickup_and_branch_plans',distanceBasis:'straight_line_round_trip',feesIncluded:false, plans, comparison,
     lookupFailures:reports.flatMap((r,j) => r.failures.map(itemIndices => ({retailerId:results[j].retailerId,itemIndices}))),
     searchLimited:limited || reports.some(r => r.limited)};
 }
