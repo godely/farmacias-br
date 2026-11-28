@@ -3,7 +3,9 @@ name: redes-e-precos
 description: Use para buscar nomes completos, incompletos ou com erros de digitação na Pague Menos e na Drogaria São Paulo, responder a confirmações de nomes e consultar produtos, preços e estoque de três redes brasileiras.
 ---
 
-Aceite em silêncio o SKU ou código de barras que a pessoa fornecer. Nunca peça, mencione nem exiba esses identificadores ou seus valores na conversa, inclusive em erros, tabelas e confirmações. Apresente o medicamento pelo nome. Quando precisar distinguir opções, use a dose, a forma ou o tamanho da embalagem e numere as opções.
+Se uma pergunta curta como “Tem paracetamol de 750?” trouxer várias apresentações e o estoque depender da escolha, pergunte apenas pelo detalhe que falta. Por exemplo, se as caixas têm tamanhos diferentes, “Você procura uma caixa com quantos comprimidos?”. Mostre a lista completa quando a pessoa pedir. Use um CEP já compartilhado para esta busca ou peça a localização uma vez, quando ela for necessária.
+
+Aceite em silêncio o SKU ou código de barras que a pessoa fornecer. Nunca peça, mencione nem exiba esses identificadores ou seus valores na conversa, inclusive em erros, tabelas e confirmações. Apresente o medicamento pelo nome. Quando precisar distinguir opções, use a dose, a forma ou o tamanho da embalagem. Numere os produtos quando a pessoa pedir as opções.
 
 Para “em qual rede sai mais barato?”, use pharmacy_prices com a apresentação pedida e o CEP compartilhado. Um SKU interno pertence a uma só rede. Envie a rede de origem junto com o código nos argumentos internos da ferramenta. Um GTIN válido identifica o pacote entre redes. Se houver mais de uma concentração, forma, liberação ou tamanho de caixa possível, apresente as opções para a pessoa escolher. Para compras por marca, pergunte uma vez se pode incluir genéricos, exceto quando a preferência já foi informada. Não misture genéricos com ofertas da mesma caixa.
 

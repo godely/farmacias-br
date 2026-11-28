@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { localApp, catalogReply } from '../src/server.js';
+import { localApp, catalogReply, shoppingReply } from '../src/server.js';
 import { getStock, listRetailers, request, searchCatalog, suggestTerms } from '../src/index.js';
 import { observations } from '../src/monitoring.js';
 
@@ -224,5 +224,28 @@ test('directory outage, unknown item and insufficient local evidence have separa
   const args={retailer:'paguemenos',sku:'42',zipcode:'01001000'};
   for (const provider of [{serves:async()=>{throw Error('offline')}},{product:async()=>{throw Error('offline')}}]) {
     assert.equal((await getStock(args,{paguemenos:provider})).status,'source_failed');
+  }
+});
+
+test('a broad counter question asks for one missing detail while preserving all catalog choices', () => {
+  const names = ['Exemplo 750 mg 10 comprimidos', 'Exemplo 750 mg 20 comprimidos'];
+  for (const table of [
+    { status: 'presentation_options', candidates: names },
+    { status: 'ambiguous', candidates: names },
+    { status: 'choose_reference', choices: names },
+  ]) {
+    const tables = [table, { status: 'matches', rows: [{ name: 'Outro produto' }] }];
+    const reply = shoppingReply({ structuredContent: { tables }, content: [] });
+    assert.deepEqual(reply.structuredContent.tables, tables);
+    assert.deepEqual(JSON.parse(reply.content[1].text), reply.structuredContent);
+    assert.equal(reply.content[0].text, reply.structuredContent.presentationGuidance);
+    assert.match(reply.content[0].text, /uma pergunta curta/);
+  }
+  for (const table of [
+    { status: 'matches', rows: names }, { status: 'catalog_lookup_failed' },
+    { status: 'ambiguous', nameCandidates: names }, { status: 'choose_reference', choices: [] },
+  ]) {
+    const original = { structuredContent: { tables: [table] }, content: [] };
+    assert.equal(shoppingReply(original), original);
   }
 });

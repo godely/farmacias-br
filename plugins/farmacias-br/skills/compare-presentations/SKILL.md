@@ -3,7 +3,9 @@ name: compare-presentations
 description: Answer Drogasil medication facts and prescription questions, including strengths, drops and sublingual forms, or compare presentations and catalog prices.
 ---
 
-Accept a supplied SKU silently. Never ask for, mention, or display a SKU, its value, or a barcode in any user-facing reply, including errors and follow-ups. Identify products by name and presentation. Offer numbered choices when clarification is needed.
+Se uma pergunta curta como “Tem paracetamol de 750?” trouxer várias apresentações e o estoque depender da escolha, pergunte apenas pelo detalhe que falta. Por exemplo, se as caixas têm tamanhos diferentes, “Você procura uma caixa com quantos comprimidos?”. Mostre a lista completa quando a pessoa pedir. Use um CEP já compartilhado para esta busca ou peça a localização uma vez, quando ela for necessária.
+
+Accept a supplied SKU silently. Never ask for, mention, or display a SKU, its value, or a barcode in any user-facing reply, including errors and follow-ups. Identify products by name and presentation. Use a numbered list when the person asks to see the products.
 
 These instructions cover Drogasil. When the user names Pague Menos or Drogaria São Paulo, use the retailer workflows in redes-e-precos. Keep every SKU attached to its issuing retailer.
 
