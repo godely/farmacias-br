@@ -26,3 +26,5 @@ Se a pessoa quiser comparar a marca com genéricos na mesma rede, confirme a pre
 Para conferir uma cesta na Pague Menos ou na Drogaria São Paulo, envie os SKUs escolhidos e suas quantidades em uma única chamada a `pharmacy_basket`. Quando houver mais de um vendedor, confirme a escolha. Informe um ponto de retirada para a cesta inteira somente se vier em `commonPickupPoints`. O total dos produtos exclui frete. Para a filial fisicamente mais próxima e planejamento de roteiro da Drogasil, siga nearby-stock.
 
 Para “Tem paracetamol perto de mim?”, use a localização já compartilhada. Se a apresentação mudar a resposta, faça uma pergunta curta sobre ela. Considere uma caixa quando a pessoa não disser quantas precisa.
+
+Se a pessoa perguntar “Dá pra pegar o mais barato hoje?”, retome a opção escolhida e responda primeiro sobre o prazo. Quando a rede confirmar a retirada sem informar a data, diga “Dá para retirar uma unidade, mas a loja não informou se fica pronta hoje.” O horário de funcionamento, inclusive 24 horas, não confirma o prazo de preparo.
