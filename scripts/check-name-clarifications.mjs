@@ -39,6 +39,16 @@ try {
   for (let mask=1; mask<8; mask++) {
     const retailers = all.filter((_, index) => mask & (1 << index));
     const scope = retailers.length === 1 ? {retailer:retailers[0]} : {retailers};
+    for (const tool of ['pharmacy_search', 'pharmacy_suggest']) {
+      const reply = await call(tool, {...scope, query:'dexa', limit:7});
+      assert.equal(reply.interaction, 'awaiting_name_choice');
+      const options = reply.nameChoice.options;
+      assert.ok(options.some(o => o.term === 'dexametasona'));
+      const brand = options.find(o => o.term === 'dexador');
+      assert.ok(brand);
+      assert.deepEqual(brand.onSelect, {...scope, query:'dexador', limit:7});
+      assert.equal(reply.nextTool, 'pharmacy_search');
+    }
     const ambiguous = await call('pharmacy_search', {...scope, query:'predniso', limit:3});
     assert.equal(ambiguous.reply, 'Você quis dizer prednisona ou prednisolona?');
     assert.ok(ambiguous.results.every(group => !group.products.length));
