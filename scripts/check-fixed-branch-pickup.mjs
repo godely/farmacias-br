@@ -10,7 +10,7 @@ import {providers} from '../src/providers.js';
 
 const ceps=process.argv.slice(2);
 assert.ok(ceps.length === 2 && ceps.every(s=>/^\d{5}-?\d{3}$/.test(s)), 'Informe dois CEPs de teste');
-const query='paracetamol Prati-Donaduzzi 750 mg 20 comprimidos';
+const query='paracetamol Prati 750 mg 20 comprimidos';
 const presentation='7899547543766';
 const run=promisify(execFile);
 const client=new Client({name:'check-fixed-branch-pickup',version:'1'});
@@ -46,12 +46,12 @@ try {
     }
     const bin=fileURLToPath(new URL('cli.js',import.meta.resolve(retailer+'-cli')));
     const scope=['--cep',cep,'--store','nearest'];
-    const plan={retailer,origin:{zipcode:cep},store:'nearest',items:[{query,includeGenerics:false}]};
+    const plan={retailer,origin:{zipcode:cep},store:'nearest',items:[{query,brand:'Prati',includeGenerics:false}]};
     const compare={retailer,query,zipcode:cep,store:'nearest',includeGenerics:false};
     for(const [label,lookup] of [
-      ['standalone plan',()=>cli(bin,['plan',query,'--brand-only','A',...scope,'--json'])],
+      ['standalone plan',()=>cli(bin,['plan',query,'--brand','A=Prati','--brand-only','A',...scope,'--json'])],
       ['standalone compare',()=>cli(bin,['compare',query,'--brand-only',...scope,'--json'])],
-      ['Farmácias CLI plan',()=>cli(path('../bin/farmacias.js'),['plan',query,'--brand-only','A','--retailer',retailer,...scope])],
+      ['Farmácias CLI plan',()=>cli(path('../bin/farmacias.js'),['plan',query,'--brand','A=Prati','--brand-only','A','--retailer',retailer,...scope])],
       ['Farmácias CLI compare',()=>cli(path('../bin/farmacias.js'),['compare',query,'--retailer',retailer,...scope])],
       ['MCP plan_purchase',()=>tool('plan_purchase',plan)],
       ['MCP pharmacy_compare',()=>tool('pharmacy_compare',compare)],
