@@ -33,6 +33,12 @@ function verify(retailer,results) {
       assert.match([p.pack,...p.packs ?? []].join(' '),i === 0 ? /60\s*ml/i : /20\s*ml/i);
       for (const key of ['currentPrice','referencePriceBRL','onlineStockSignal','inStock']) assert.ok(!(key in p));
       assert.ok(p.source);
+      if (i === 0) {
+        assert.equal(p.prescription.form,'Notificação de Receita A');
+        assert.equal(p.prescription.list,'A1');
+        assert.match(p.prescription.rule,/anvisalegis/);
+        assert.ok(!(p.prescriptionLabel ?? []).join(' ').includes('C1'));
+      }
     }
   }
 }
