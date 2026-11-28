@@ -249,3 +249,15 @@ test('a broad counter question asks for one missing detail while preserving all 
     assert.equal(shoppingReply(original), original);
   }
 });
+
+test('known pickup and physical inventory give a price follow-up for the original item', () => {
+  for (const data of [
+    { coverage:{canExpand:false}, tables:[{lowestPricedStockedOption:'A1',rows:[{option:'A1',referencePriceBRL:5}]}] },
+    { planningScope:'one_pack_alternatives', lowestPricedPickup:{currentPrice:5,branchQuantity:null} },
+  ]) {
+    const reply=shoppingReply({structuredContent:data,content:[]});
+    assert.match(reply.structuredContent.priceGuidance,/comece pela opção disponível de menor preço/);
+    assert.match(reply.content[0].text,/consulta inteira/);
+    assert.deepEqual(JSON.parse(reply.content[1].text),reply.structuredContent);
+  }
+});

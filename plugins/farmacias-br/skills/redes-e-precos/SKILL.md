@@ -3,6 +3,8 @@ name: redes-e-precos
 description: Use para buscar nomes completos, incompletos ou com erros de digitação na Pague Menos e na Drogaria São Paulo, responder a confirmações de nomes e consultar produtos, preços e estoque de três redes brasileiras.
 ---
 
+Quando a pessoa responder “A de 20. Qual sai mais em conta?”, complete o nome, a dose e a embalagem do mesmo item e consulte as alternativas em uma só chamada. Comece pela caixa de menor preço com estoque ou retirada confirmada para a quantidade pedida. Trate fabricantes como opções para uma compra. Se uma opção tiver estoque, encerre a busca local. A ampliação para 25 km depende de zero em todas as opções aceitas da consulta inteira e de autorização da pessoa.
+
 Se uma pergunta curta como “Tem paracetamol de 750?” trouxer várias apresentações e o estoque depender da escolha, pergunte apenas pelo detalhe que falta. Por exemplo, se as caixas têm tamanhos diferentes, “Você procura uma caixa com quantos comprimidos?”. Mostre a lista completa quando a pessoa pedir. Use um CEP já compartilhado para esta busca ou peça a localização uma vez, quando ela for necessária.
 
 Aceite em silêncio o SKU ou código de barras que a pessoa fornecer. Nunca peça, mencione nem exiba esses identificadores ou seus valores na conversa, inclusive em erros, tabelas e confirmações. Apresente o medicamento pelo nome. Quando precisar distinguir opções, use a dose, a forma ou o tamanho da embalagem. Numere os produtos quando a pessoa pedir as opções.

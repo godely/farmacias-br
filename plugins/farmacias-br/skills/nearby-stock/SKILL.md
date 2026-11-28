@@ -3,6 +3,8 @@ name: nearby-stock
 description: Handle Drogasil medication availability and shopping baskets. Ask about generics for named brands before any lookup, then plan all pickups together.
 ---
 
+Quando a pessoa responder “A de 20. Qual sai mais em conta?”, complete o nome, a dose e a embalagem do mesmo item e consulte as alternativas em uma só chamada. Comece pela caixa de menor preço com estoque ou retirada confirmada para a quantidade pedida. Trate fabricantes como opções para uma compra. Se uma opção tiver estoque, encerre a busca local. A ampliação para 25 km depende de zero em todas as opções aceitas da consulta inteira e de autorização da pessoa.
+
 Se uma pergunta curta como “Tem paracetamol de 750?” trouxer várias apresentações e o estoque depender da escolha, pergunte apenas pelo detalhe que falta. Por exemplo, se as caixas têm tamanhos diferentes, “Você procura uma caixa com quantos comprimidos?”. Mostre a lista completa quando a pessoa pedir. Use um CEP já compartilhado para esta busca ou peça a localização uma vez, quando ela for necessária.
 
 Accept a supplied SKU silently. Never ask for, mention, or display a SKU, its value, or a barcode in any user-facing reply, including errors and follow-ups. Identify products by name and presentation. Use a numbered list when the person asks to see the products.

@@ -11,7 +11,9 @@ import { operations, request, schemas } from './index.js';
 
 const productNames = 'Accept a supplied SKU silently. Never ask for, mention, or display a SKU, its value, or a barcode in any user-facing reply, including errors and follow-ups. Identify products by name and presentation. Use the name and presentation for follow-up choices.';
 
-const presentationGuidance = 'O catálogo encontrou várias apresentações. Em uma pergunta de balcão, faça uma pergunta curta sobre uma diferença que aparece nas opções e que a pessoa ainda não especificou. Priorize dose, forma ou liberação quando diferirem. Se só o tamanho da caixa importar, pergunte quantos comprimidos ela procura. Guarde a relação de produtos para quando a pessoa pedir as opções. Uma apresentação ainda por escolher não confirma estoque. Se já houver resultados de outros itens da cesta, apresente-os.';
+const presentationGuidance = 'O catálogo encontrou várias apresentações. Em uma pergunta de balcão, faça uma pergunta curta sobre uma diferença que aparece nas opções e que a pessoa ainda não especificou. Priorize dose, forma ou liberação quando diferirem. Se só o tamanho da caixa importar, pergunte quantos comprimidos ela procura. Guarde a relação de produtos para quando a pessoa pedir as opções. Uma apresentação ainda por escolher não confirma estoque. Se já houver resultados de outros itens da cesta, apresente-os. Quando a pessoa escolher uma embalagem, acrescente esse tamanho à consulta do mesmo item. Fabricantes alternativos continuam em uma única linha do pedido.';
+
+const priceGuidance = 'Para “qual sai mais em conta?”, comece pela opção disponível de menor preço conhecido para a quantidade pedida. Em cada tabela da Drogasil, lowestPricedStockedOption aponta para essa linha. Nas outras redes, lowestPricedPickup identifica a oferta de retirada. Se houver uma opção mais perto, mencione-a depois. Se houver preço, consulta ou estoque pendente, limite a comparação às ofertas confirmadas. Só ofereça 25 km se coverage.canExpand for true para a consulta inteira e nenhuma alternativa válida tiver estoque.';
 
 function needsPresentationChoice(table) {
   if (table.status === 'choose_reference') return table.choices?.length > 1;
@@ -73,10 +75,16 @@ export function toolReply(name, args, value) {
 }
 
 export function shoppingReply(response) {
-  if (!response.structuredContent?.tables?.some(needsPresentationChoice)) return response;
-  const structuredContent = { ...response.structuredContent, presentationGuidance };
+  const data = response.structuredContent;
+  if (!data) return response;
+  const guidance = {};
+  if (data.tables?.some(needsPresentationChoice)) guidance.presentationGuidance = presentationGuidance;
+  if (data.coverage || data.planningScope === 'one_pack_alternatives') guidance.priceGuidance = priceGuidance;
+  const notes = Object.values(guidance);
+  if (!notes.length) return response;
+  const structuredContent = { ...data, ...guidance };
   return { ...response, structuredContent, content: [
-    { type: 'text', text: presentationGuidance },
+    { type: 'text', text: notes.join(' ') },
     { type: 'text', text: JSON.stringify(structuredContent) },
   ] };
 }
@@ -95,7 +103,7 @@ export function createServer(monitor = null) {
   registerDrogasilTools({
     registerTool(name, options, handler) {
       if (name === 'plan_purchase') {
-        const description = 'Check a named or exact-SKU basket in one call after generic preferences are settled. Set retailer for the requested chain. Drogasil reports physical branch quantities and route plans. Pague Menos and Drogaria São Paulo verify fulfillment for selected quantities, report unresolved presentations and common pickup options. For those chains physical stock, fixed closest branch, 25 km inventory and optimized routes remain unverified. ' + options.description;
+        const description = 'Check a named or exact-SKU basket in one call after generic preferences are settled. Send one item per medication the shopper needs. For a pack-size reply update the same query with the name, strength, form and chosen pack. Manufacturers of the same ingredient are alternative offers for that one item. Set retailer for the requested chain. Drogasil reports physical branch quantities and route plans. Pague Menos and Drogaria São Paulo verify fulfillment for selected quantities, report unresolved presentations and common pickup options. For those chains physical stock, fixed closest branch, 25 km inventory and optimized routes remain unverified. ' + options.description;
         return registry.registerTool(name, {...options, description,
           inputSchema: {...options.inputSchema, retailer:z.enum(['drogasil','paguemenos','drogariasaopaulo']).optional()}},
         async ({retailer='drogasil', ...args},extra) => {
