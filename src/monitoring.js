@@ -10,13 +10,13 @@ const chains = new Map([
 const operations = new Set(['retailers', 'search', 'suggest', 'product', 'info', 'stores', 'compare', 'basket', 'baskets', 'snapshot', 'read_snapshot', 'stock', 'prices', 'get_medication_info',
   'plan_purchase', 'search_products', 'get_products', 'find_nearby_stock', 'compare_products',
   'compare_pharmacy_prices', 'collect_catalog_snapshot', 'read_catalog_snapshot', 'service', 'presentation_canary']);
-const failures = new Set(['upstream_failure', 'lookup_miss', 'stock_unknown', 'catalog_incomplete', 'service_exit', 'handler_exception', 'timeout', 'canary_mismatch']);
-const knownMiss = new Set(['no_reference', 'unknown_sku', 'unknown_gtin', 'no_match', 'no_exact_match']);
+const failures = new Set(['upstream_failure', 'lookup_miss', 'stock_unknown', 'catalog_incomplete', 'service_exit', 'handler_exception', 'timeout', 'canary_mismatch', 'pickup_unconfirmed']);
+const knownMiss = new Set(['no_reference', 'unknown_sku', 'unknown_gtin', 'no_match', 'no_exact_match', 'requested_brand_not_found', 'selected_presentation_unverified']);
 const sourceProblems = new Set(['failed', 'source_failed', 'catalog_lookup_failed', 'location_lookup_failed',
   'generic_lookup_failed', 'reference_lookup_failed', 'lookup_failed']);
 const incomplete = new Set(['incomplete_presentation', 'no_prices', 'unconfirmed_gtin', 'missing_gtin', 'presentation_unconfirmed', 'quantity_unverified']);
 const clarifications = new Set(['ambiguous', 'choose_reference', 'presentation_options', 'conflicting_release',
-  'needs_generic_preference', 'needs_name_confirmation', 'requires_retailer', 'requires_cep', 'requires_origin', 'location_unconfirmed']);
+  'needs_generic_preference', 'choose_manufacturer', 'needs_name_confirmation', 'requires_retailer', 'requires_cep', 'requires_origin', 'location_unconfirmed']);
 const uuid = () => randomUUID().replaceAll('-', '');
 
 function retailerId(value) {
@@ -38,7 +38,7 @@ function queryShape(query) {
 function outcome(row = {}) {
   const status = row.status ?? row.state ?? row.localStatus;
   const pickup = [row, ...(row.choices ?? [])].map(option => option?.pickupVerification?.status);
-  if (pickup.includes('directory_failed')) return 'upstream_failure';
+  if (row.choices?.some(option => option.localStatus === 'lookup_failed') || pickup.includes('directory_failed')) return 'upstream_failure';
   if (pickup.includes('incomplete')) return 'stock_unknown';
   if (row.suggestionStatus === 'source_failed') return 'upstream_failure';
   if (row.suggestionStatus === 'suggestions') return 'clarification';
@@ -86,12 +86,34 @@ function branchInventoryOutcome(inventory, minimum) {
   return 'no_qualifying_stock';
 }
 
+// The same subset can be retried for several sellers and appear in both the
+// combined and per-chain plans. Count one incident per retailer and subset.
+function pickupQuoteIssues(result, items = []) {
+  const plans = result.crossRetailerPlans ? [result.crossRetailerPlans] :
+    (result.results ?? [result]).map(row => row.pickupPlans);
+  const issues = new Map();
+  for (const plan of plans) for (const failure of plan?.lookupFailures ?? []) {
+    const indices = [...new Set(failure.itemIndices)].sort((a,b) => a-b);
+    if (!indices.length || !indices.every(i => Number.isSafeInteger(i) && i >= 0 && i < items.length)) continue;
+    const retailer = retailerId(failure.retailerId);
+    const key = JSON.stringify([retailer, indices]);
+    const outcome = failure.reason === 'lookup_failed' ? 'upstream_failure' : 'pickup_unconfirmed';
+    if (issues.get(key)?.outcome === 'upstream_failure') continue;
+    issues.set(key, {operation:'pickup_quote', retailer, outcome,
+      shape:indices.length === 1 ? queryShape(items[indices[0]].query) : 'joint'});
+  }
+  return [...issues.values()];
+}
+
 // One observation per basket line, retailer, or standalone lookup. The mapper
 // only returns enumerated categories. No strings from source payloads pass through.
 export function observations(operation, args, result) {
   if (operation.startsWith('pharmacy_')) operation = operation.slice(9);
+  if (operation === 'plan') operation = 'plan_purchase';
   if (!operations.has(operation)) return [];
-  const base = retailerId(args?.retailer ?? (operation.includes('_') ? 'Drogasil' : undefined));
+  const selected = args?.retailers?.length === 1 ? args.retailers[0] : undefined;
+  const native = operation.includes('_') && !['plan_purchase','compare_pharmacy_prices'].includes(operation);
+  const base = retailerId(args?.retailer ?? result.retailerId ?? selected ?? (native ? 'drogasil' : undefined));
   const rows = [];
   const add = (row, query, retailer = base) => rows.push({ operation, retailer, shape: queryShape(query), outcome: outcome(row) });
   if (operation === 'get_products' && Array.isArray(result.products)) {
@@ -123,6 +145,7 @@ export function observations(operation, args, result) {
   } else {
     add(result, args.query ?? args.sku, result.retailerId ? retailerId(result.retailerId) : base);
   }
+  if (operation === 'plan_purchase') rows.push(...pickupQuoteIssues(result, args.items));
   if (operation === 'stock' && result.branchInventory) {
     rows.push({ operation: 'branch_inventory', retailer: base, shape: queryShape(args.sku),
       outcome: branchInventoryOutcome(result.branchInventory, args.quantity ?? 1) });
