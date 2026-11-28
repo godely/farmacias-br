@@ -16,8 +16,8 @@ assert.ok(retailers.every(id=>ids.includes(id)) && new Set(retailers).size===ret
 assert.ok(['cli','mcp','both'].includes(surface));
 const items=[
   ['Dimorf em gotas','Dimorf'],
-  ['Solução fisiológica Dauf Pro Soro 0,9% 500 mL','Dauf'],
-  ['Descongestionante nasal spray Ever Care','Ever Care'],
+  ['Pro Soro Dauf 500 mL','Dauf'],
+  ['Ever Care spray nasal','Ever Care'],
   ['Patz GTS em gotas, frasco de 30 mL','Patz'],
 ].map(([query,brand])=>({query,brand,includeGenerics:false}));
 const args={origin:{zipcode},retailers,items};
@@ -46,6 +46,13 @@ function verify(result,label) {
       }
     }
     assert.equal(filled.size,partial.filledCount);
+    // Release fixture at the caller's pilot location. A changed assortment
+    // should prompt a retailer recheck instead of passing a catalog regression.
+    const expected = [
+      retailers.includes('drogasil') || retailers.includes('drogariasaopaulo'),
+      retailers.includes('paguemenos'), retailers.includes('drogariasaopaulo'),
+    ].flatMap((present,i)=>present?[i]:[]);
+    assert.deepEqual([...filled].sort(),expected,'A oferta mudou ou o nome deixou de ser reconhecido');
     assert.deepEqual(p.unfilled.map(line=>line.item),items.flatMap((_,i)=>filled.has(i)?[]:[i]));
     for(const line of p.unfilled) assert.deepEqual(line.outcomes.map(o=>o.retailerId),retailers);
     assert.ok(p.unfilled.find(line=>line.item===3));
