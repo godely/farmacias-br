@@ -155,3 +155,18 @@ test('overlapping assortments can fill the same basket with two of the three ret
     }
   }
 });
+
+test('shopper-facing MCP compares route length and names the branch at its address', async () => {
+  const {shoppingReply} = await import('../src/server.js');
+  const stop = {retailerId:'drogariasaopaulo',name:'Filial Praça',address:{street:'Rua Principal',number:'12'},
+    pickups:[{name:'Produto de teste',packs:1,unitPriceBRL:8,evidence:'quoted_pickup'}]};
+  const fewest = {objective:'fewest_stores',stopCount:1,roundTripKm:2,totalBRL:12,stops:[stop]};
+  const cheaper = {objective:'lowest_price',stopCount:2,roundTripKm:2.5,totalBRL:8,stops:[stop,{...stop,name:'Filial da Estação'}]};
+  const comparison = {savingsBRL:4,extraStops:1,extraKm:0.5};
+  const response = {content:[],structuredContent:{crossRetailerPlans:{status:'complete',plans:[fewest,cheaper],comparison}}};
+  const reply = shoppingReply(response);
+  assert.match(reply.content[0].text, /1 loja,/);
+  assert.match(reply.content[0].text, /Drogaria São Paulo — Filial Praça — Rua Principal, 12/);
+  assert.match(reply.content[0].text, /4,00.*1 parada a mais.*500 m a mais.*linha reta/);
+  assert.equal(reply.structuredContent.crossRetailerPlans.comparison,comparison);
+});

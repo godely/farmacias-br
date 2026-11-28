@@ -1,3 +1,4 @@
+import {describePickupStop, describePlanDifference} from 'paguemenos-cli/pickup-plans';
 import {clarifyLookup} from './name-choices.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
@@ -105,15 +106,17 @@ function itineraryText(result) {
   if (!result?.plans?.length) return null;
   const text = ['Cesta completa. Cada filial visitada conta como uma parada. Use a ordem abaixo.'];
   for (const p of result.plans) {
-    const cost = Number.isFinite(p.totalBRL) ? currency.format(p.totalBRL) : 'total a confirmar';
+    const cost = Number.isFinite(p.totalBRL) ? 'subtotal estimado de ' + currency.format(p.totalBRL) : 'subtotal a confirmar';
     const km = Number.isFinite(p.roundTripKm) ? p.roundTripKm.toLocaleString('pt-BR',{maximumFractionDigits:2}) +
       ' km de ida e volta em linha reta' : 'distância total a confirmar';
     const title = {both:'Menos lojas e menor preço estimado',fewest_stores:'Menos lojas',lowest_price:'Menor preço estimado'}[p.objective];
-    text.push(title + ' entre os planos verificados. ' + p.stopCount + ' lojas, ' + cost + ', ' + km + '.');
+    text.push(title + ' entre as lojas consultadas. ' + p.stopCount + (p.stopCount === 1 ? ' loja, ' : ' lojas, ') + cost + ', ' + km + '.');
     for (const [i,stop] of p.stops.entries()) {
-      const a=stop.address ?? {};
-      const address=[a.street ?? a.addressLocal,a.number ?? a.addressNumber].filter(Boolean).join(', ');
-      text.push((i+1) + '. ' + retailerNames[stop.retailerId] + ' — ' + (address || stop.name));
+      const chain = retailerNames[stop.retailerId];
+      const branch = describePickupStop(stop);
+      const label = branch.toLocaleLowerCase('pt-BR').startsWith(chain.toLocaleLowerCase('pt-BR')) ?
+        branch : [chain, branch].filter(Boolean).join(' — ');
+      text.push((i+1) + '. ' + label);
       for (const pick of stop.pickups) {
         const price = Number.isFinite(pick.unitPriceBRL) ? currency.format(pick.unitPriceBRL) : 'preço a confirmar';
         const evidence = pick.evidence === 'quoted_pickup' ? 'retirada oferecida para a quantidade pedida' :
@@ -122,8 +125,7 @@ function itineraryText(result) {
       }
     }
   }
-  if (result.comparison) text.push('Economia de ' + currency.format(result.comparison.savingsBRL) +
-    ' com ' + result.comparison.extraStops + ' parada(s) a mais.');
+  if (result.comparison) text.push(describePlanDifference(result.comparison));
   if (result.searchLimited || result.lookupFailures?.length) text.push('Comparação parcial entre as opções verificadas.');
   return text.join('\n');
 }
@@ -146,7 +148,7 @@ export function shoppingReply(response) {
   const itinerary = itineraryText(data.crossRetailerPlans ?? data.pickupPlans ?? (outcomes.length === 1 ? outcomes[0].pickupPlans : undefined));
   if (itinerary && !data.nextAction) {
     guidance.nextAction = 'answer_with_plan';
-    guidance.itineraryGuidance = 'Informe onde retirar cada item e o total do plano já verificado. A consulta está concluída. Preserve os avisos de cobertura parcial.';
+    guidance.itineraryGuidance = 'Informe a filial e o endereço por item e o subtotal estimado. Quando os planos diferirem, explique a economia, a mudança de paradas e a diferença de percurso em linha reta. A consulta está concluída. Preserve os avisos de cobertura parcial.';
   }
   const notes = [itinerary,...Object.entries(guidance).filter(([key]) => key !== 'nextAction').map(([,text]) => text)].filter(Boolean);
   if (!notes.length) return response;
