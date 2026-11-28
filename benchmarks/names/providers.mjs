@@ -6,7 +6,7 @@ const endpoints = {
 };
 
 export function orderedChoices(candidates, evidence, caseId, round) {
-  const shift = caseId % candidates.length;
+  const shift = candidates.length ? caseId % candidates.length : 0;
   const order = candidates.slice(shift).concat(candidates.slice(0,shift));
   if (round%2) order.reverse();
   const options = order.map((name,i)=>({id:'n'+(i+1),description:name+' ('+evidence[name].sources.join(', ')+')',name}));

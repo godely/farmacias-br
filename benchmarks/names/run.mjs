@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {readFile,writeFile} from 'node:fs/promises';
+import {readFile,writeFile,rename} from 'node:fs/promises';
 import {classify,orderedChoices} from './providers.mjs';
 
 const out = process.argv[2];
 if (!out) throw Error('Supply a new JSON output file.');
 const raw = await readFile(new URL('cases.json',import.meta.url));
 const cases = JSON.parse(raw);
-const catalog = JSON.parse(await readFile(new URL('catalog.json',import.meta.url)));
+const catalogBytes = await readFile(new URL('catalog.json',import.meta.url));
+const catalog = JSON.parse(catalogBytes);
+const catalogDigest = createHash('sha256').update(catalogBytes).digest('hex');
 assert.equal(createHash('sha256').update(raw).digest('hex'),catalog.caseDigest);
 assert.equal(cases.length,catalog.rows.length);
 const providers = ['local','openai','jev'];
@@ -16,6 +18,7 @@ const runs = [];
 const fatal = new Map();
 const started = new Date().toISOString();
 for (const env of ['OPENAI_API_KEY','JEV_API_KEY']) if (!process.env[env]) throw Error('Missing '+env);
+await writeFile(out,JSON.stringify({started,catalogDigest,caseDigest:catalog.caseDigest,rounds,runs}),{flag:'wx'});
 for (let round=0;round<rounds;round++) {
   // Interleave both providers and keep one request per provider in flight.
   for (const [i,c] of cases.entries()) {
@@ -34,6 +37,8 @@ for (let round=0;round<rounds;round++) {
     }));
     runs.push(result);
   }
+  const temporary = out+'.'+process.pid+'.partial';
+  await writeFile(temporary,JSON.stringify({started,catalogDigest,caseDigest:catalog.caseDigest,rounds,runs})+'\n',{flag:'wx'});
+  await rename(temporary,out);
   console.error('Rodada '+(round+1)+'/'+rounds+' concluída.');
 }
-await writeFile(out,JSON.stringify({started,caseDigest:catalog.caseDigest,rounds,runs},null,2)+'\n',{flag:'wx'});
