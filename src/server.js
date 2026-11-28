@@ -24,8 +24,8 @@ function needsPresentationChoice(table) {
 
 const descriptions = {
   retailers: 'List supported Brazilian retailers and the stock and price evidence each can provide.',
-  search: 'Search exactly the selected catalogs without a CEP. For a medication name confirmation, ask only confirmation.question verbatim. Stop for the reply. Sim accepts that single term: call pharmacy_search with onYes. Não: call pharmacy_suggest with onNo and show the remaining terms. Use activeIngredients and ingredientEvidence for ingredient questions. Return products only for the requested retailer.',
-  suggest: 'Suggest a search term for Pague Menos or Drogaria São Paulo. Always supply the requested retailer. Return suggestions without products or CEP. Ask only confirmation.question and wait. Sim: call pharmacy_search with onYes. Não: call this tool with onNo, list the remaining terms, and wait for a selection. If none remain, ask for another spelling. Use listAll only on an explicit request for all suggestions.',
+  search: 'Search exactly the selected catalogs without a CEP. For nameChoice ask its question, wait for the selected name and pass that option’s onSelect. For a medication name confirmation, ask only confirmation.question verbatim. Stop for the reply. Sim accepts that single term: call pharmacy_search with onYes. Não: call pharmacy_suggest with onNo and show the remaining terms. Use activeIngredients and ingredientEvidence for ingredient questions. Return products only for the requested retailer.',
+  suggest: 'Suggest search terms for the selected pharmacy or pharmacies. Always supply the requested retailer. Return suggestions without products or CEP. Ask only confirmation.question and wait. Sim: call pharmacy_search with onYes. Não: call this tool with onNo, list the remaining terms, and wait for a selection. If none remain, ask for another spelling. Use listAll only on an explicit request for all suggestions.',
   compare: 'Compare presentations in the selected partner catalog. For prices alone omit location. For local availability pass the shared CEP or coordinates in this call. After settling brand/generic preference, show the requested product first, then verified generics. Report checkout pickup and delivery evidence. closestQuotedPickup ranks the returned pickup options with known distances. Exact branch quantity remains unknown.',
   basket: 'Check the whole selected basket at one partner retailer in one call. Supply exact local SKUs, quantities and shared CEP. For multiple sellers ask which to use. Pague Menos and São Paulo use a single fulfillment simulation. Only commonPickupPoints apply to all items. A fewest-stores or shortest-route plan is available for Drogasil only.',
   baskets: 'Compare whole baskets of the same GTINs and quantities at exactly the selected retailers. Send the whole basket once. Report complete CEP-verified product subtotals separately from Drogasil catalog estimates, and report missing items and fees.',
@@ -40,17 +40,18 @@ const descriptions = {
 
 function confirmFirst(group, original) {
   const [term] = group.suggestions ?? [];
-  if (!term) return group;
-  const retailer = group.retailerId;
+  if (!term || group.confirmation || group.nameChoice) return group;
+  const scope = group.retailers ? {retailers:group.retailers} : {retailer:group.retailerId};
   return { ...group, suggestions: [term], confirmation: {
     question: `Você quis dizer ${term}?`,
     onYesTool: 'pharmacy_search', onNoTool: 'pharmacy_suggest',
-    onYes: { query: term, retailer },
-    onNo: { query: original, retailer, declinedTerm: term },
+    onYes: { query: term, ...scope },
+    onNo: { query: original, ...scope, declinedTerm: term },
   } };
 }
 
 export function catalogReply(name, args, data) {
+  if (data.nameChoice || data.confirmation) return data;
   if (name === 'search') return { ...data, results: data.results.map(group => confirmFirst(group, args.query)) };
   if (name === 'suggest' && !args.declinedTerm && !args.listAll) return confirmFirst(data, args.query);
   return data;
@@ -65,7 +66,12 @@ export function toolReply(name, args, value) {
   const prompt = data.confirmation ?? (data.results?.length === 1 && data.results[0].confirmation);
   const content = [];
   let structuredContent = data;
-  if (prompt) {
+  if (data.nameChoice) {
+    const nextTool = name === 'plan_purchase' ? 'plan_purchase' : 'pharmacy_search';
+    structuredContent = {...data, interaction:'awaiting_name_choice', reply:data.nameChoice.question, nextTool};
+    content.push({type:'text',text:data.nameChoice.question + '\nAguarde a escolha de um nome. Use ' + nextTool +
+      ' com onSelect da opção escolhida. Se a pessoa disser apenas “sim”, peça que escolha um dos nomes.'});
+  } else if (prompt) {
     const instructions = [
       'Responda agora com esta pergunta exata e aguarde:',
       prompt.question,

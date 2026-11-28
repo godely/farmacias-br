@@ -13,7 +13,7 @@ for(let mask=1;mask<8;mask++) {
         product:async sku=>{assert.equal(sku,row.sku);return [row]},
         basket:async lines=>{quoted.push(id);return lines.map(l=>({...row,requestedQuantity:l.quantity,localStatus:'available',methods:[]}));}}];
     }));
-    await searchCatalog({query:'Exemplo',retailers},sources);
+    await searchCatalog({query:'Exemplo',retailers},sources,async () => []);
     assert.deepEqual(searched,retailers);
     await comparePrices({query:gtin,retailers,zipcode},{sources,compare:async (_,opts)=>{
       assert.equal(opts.includeDrogasil,retailers.includes('drogasil'));

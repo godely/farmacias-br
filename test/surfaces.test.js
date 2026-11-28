@@ -7,8 +7,11 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { localApp, catalogReply, shoppingReply, toolReply } from '../src/server.js';
-import { getStock, listRetailers, request, searchCatalog, suggestTerms } from '../src/index.js';
+import { getStock, listRetailers, request, searchCatalog as runCatalogSearch, suggestTerms } from '../src/index.js';
 import { observations } from '../src/monitoring.js';
+
+// These fixtures exercise provider suggestions after the shared name check.
+const searchCatalog = (args, sources) => runCatalogSearch(args, sources, async () => []);
 
 test('one source outage leaves separate catalog outcomes and preserves retailer-specific SKU identity', async () => {
   const sources = Object.fromEntries(listRetailers().map(({id}) => [id, { search: async () => [{sku: '1', name: 'Exemplo Genérico'}] }]));
@@ -59,7 +62,7 @@ test('a Pague Menos prefix returns terms until the caller selects one, then expo
   const terms = await suggestTerms({query: 'morfi'}, sources);
   assert.ok(terms.suggestions.includes('morfina'));
   assert.deepEqual(searched, ['morfi', 'morfina', 'morfi']);
-  await assert.rejects(suggestTerms({...args, retailer:'drogasil'}, sources));
+  assert.equal((await suggestTerms({...args, retailer:'drogasil'}, {drogasil:sources.paguemenos})).status, 'suggestions');
 });
 
 test('a suggestion outage preserves the catalog miss, and a failed catalog does not initiate suggestions', async () => {

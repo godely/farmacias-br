@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {compactPartnerAlternatives,planSelectedBaskets,purchaseSchema} from '../src/named-baskets.js';
+import {compactPartnerAlternatives,planSelectedBaskets as runPlan,purchaseSchema} from '../src/named-baskets.js';
+
+const planSelectedBaskets = (args, deps) => runPlan(args, {clarify:async () => [], ...deps});
 import {planArgs} from '../bin/plan-args.js';
 
 const chains=['drogasil','paguemenos','drogariasaopaulo'];
