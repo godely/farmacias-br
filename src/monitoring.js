@@ -49,13 +49,37 @@ function outcome(row = {}) {
   }
   if (row.expandedSearch?.partial || row.unknown?.length || status === 'stock_unknown' || row.coverage?.stockUnknown) return 'stock_unknown';
   if (['unverified','unknown'].includes(status)) return 'stock_unknown';
-  if (row.coverage?.allZero || status === 'no_stock' || status === 'unavailable') return 'zero_stock';
+  if (!row.expandedSearch && row.coverage?.allZero) return 'zero_stock';
+  if (status === 'unavailable') return 'unavailable';
+  if (status === 'no_stock') return 'no_qualifying_stock';
   if (status === 'insufficient_stock' ||
       (row.unavailable?.length && !row.rows?.length)) return 'insufficient_stock';
   if (incomplete.has(status)) return 'catalog_incomplete';
   if (clarifications.has(status)) return 'clarification';
   if (status === 'outside_local_directory') return 'outside_coverage';
   return 'ok';
+}
+
+function offerOutcome(offers, isCheckout) {
+  const outcomes = offers.map(row => {
+    if (isCheckout && row.localStatus === 'unavailable') return 'fulfillment_unavailable';
+    return outcome({ ...row, status: row.localStatus });
+  });
+  if (outcomes.includes('upstream_failure')) return 'upstream_failure';
+  const failure = outcomes.find(value => failures.has(value));
+  if (failure) return failure;
+  if (outcomes.includes('ok')) return 'ok';
+  if (outcomes.every(value => value === outcomes[0])) return outcomes[0];
+  return 'unavailable';
+}
+
+function branchInventoryOutcome(inventory, minimum) {
+  if (inventory.status !== 'unavailable') return outcome(inventory);
+  const coverage = inventory.coverage;
+  if (!coverage?.checkedStores || coverage.unknownStores || coverage.unknownDistanceStores) return 'stock_unknown';
+  // An expanded window may contain positive counts below the requested minimum.
+  if ((!inventory.expanded && coverage.nearbyAllZero) || minimum === 1) return 'zero_stock';
+  return 'no_qualifying_stock';
 }
 
 // One observation per basket line, retailer, or standalone lookup. The mapper
@@ -86,11 +110,14 @@ export function observations(operation, args, result) {
   } else if (result.results?.length) {
     result.results.forEach((row, i) => add(row, args.query ?? args.queries?.[i], row.retailerId ? retailerId(row.retailerId) : base));
   } else if (result.offers?.length) {
-    const outcomes = result.offers.map(row => outcome({ ...row, status: row.localStatus }));
-    const selected = outcomes.find(value => failures.has(value)) ?? (outcomes.every(x => x === 'zero_stock') ? 'zero_stock' : outcome(result));
-    rows.push({ operation, retailer: base, shape: queryShape(args.sku), outcome: selected });
+    const isCheckout = result.evidence === 'fulfillment_quote' || ['paguemenos','drogariasaopaulo'].includes(base);
+    rows.push({ operation, retailer: base, shape: queryShape(args.sku), outcome: offerOutcome(result.offers, isCheckout) });
   } else {
     add(result, args.query ?? args.sku, result.retailerId ? retailerId(result.retailerId) : base);
+  }
+  if (operation === 'stock' && result.branchInventory) {
+    rows.push({ operation: 'branch_inventory', retailer: base, shape: queryShape(args.sku),
+      outcome: branchInventoryOutcome(result.branchInventory, args.quantity ?? 1) });
   }
   return rows;
 }
