@@ -20,7 +20,7 @@ const descriptions = {
   baskets: 'Compare whole baskets of the same GTINs and quantities at exactly the selected retailers. Send the whole basket once. Report complete CEP-verified product subtotals separately from Drogasil catalog estimates, and report missing items and fees.',
   stores: 'Page through the named retailer’s branch directory. Pague Menos needs a shared CEP or coordinates. Directory membership alone gives no evidence of shelf stock, distance order or pickup availability.',
   info: 'Get only medication facts from the named retailer by names or SKUs in one call, without a location or price/stock inquiry. Keep strengths with their own titles. Separate prescription, retention and form. Missing labels are unconfirmed. Pages refer to catalog search.',
-  snapshot: 'Start an explicitly requested, saved catalog snapshot for one retailer. Read the returned run ID with pharmacy_read_snapshot.',
+  snapshot: 'Save catalog observations for the requested pharmacies. Supply retailer for one run, or retailers for separate runs in selection order. maxItems applies per pharmacy. Read each run with pharmacy_read_snapshot. Catalog availability describes online offers.',
   read_snapshot: 'Read a page of an existing catalog snapshot. Check state and nextOffset before claiming the run is complete.',
   product: 'Read catalog facts and online prices for one SKU, an ordered batch of SKUs, or one exact barcode. Always supply the owning retailer. Do not infer a prescription rule from a missing fact.',
   stock: 'Check one retailer and SKU at the supplied location. All three accept CEP or coordinates. Drogasil returns branch quantities, the other retailers quote fulfillment. Only report the evidence actually returned.',

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
 import { request } from '../src/index.js';
+import { runSnapshotCommand } from 'drogasil-cli/retailer-workflows';
 
 const usage = `Farmácias BR
   farmacias retailers
@@ -14,20 +15,26 @@ const usage = `Farmácias BR
   farmacias baskets GTIN[:quantidade]... --retailers ID,ID --cep CEP
   farmacias basket SKU[:quantidade[:vendedor]]... --retailer ID --cep CEP
   farmacias info <nome ou SKU>... --retailer ID [--brazil]
-  farmacias snapshot <consulta>... --retailer ID [--max-items N]
+  farmacias snapshot <consulta>... (--retailer ID | --retailers ID,ID) [--max-items N]
   farmacias read_snapshot <run-id> [--offset N --limit N]
+  farmacias export_snapshot <run-id> [--format json|csv|xlsx]
   farmacias stock <SKU> --retailer ID (--cep CEP | --lat LAT --lon LON) [--quantity N]
   farmacias prices <nome, SKU ou GTIN> --cep CEP [--retailer ID_DO_SKU] [--retailers ID,ID] [--generics]
   Resultados em JSON. Os identificadores de loja estão em farmacias retailers.`;
 try {
   const { positionals: [operation, ...terms], values } = parseArgs({ allowPositionals: true, options: {
     lat: { type: 'string' }, lon: { type: 'string' }, help: { type: 'boolean', short: 'h' }, retailer: { type: 'string', multiple:true }, retailers:{type:'string'}, brazil:{type:'boolean'}, cep: { type: 'string' },
-    gtin: {type:'string'}, 'max-items':{type:'string'}, offset:{type:'string'},
+    gtin: {type:'string'}, 'max-items':{type:'string'}, offset:{type:'string'}, format:{type:'string'},
     page: { type: 'string' }, limit: { type: 'string' }, quantity: { type: 'string' },
     generics: { type: 'boolean' }, json: { type: 'boolean' },
   } });
   if (values.help || !operation) console.log(usage);
+  else if (operation === 'export_snapshot') {
+    if (Object.keys(values).some(key => key !== 'format')) throw Error('O export aceita apenas --format');
+    process.exitCode = await runSnapshotCommand(['export', ...terms], values);
+  }
   else {
+    if (values.format !== undefined) throw Error('--format é válido apenas para export_snapshot');
     const args = {};
     if (values.gtin !== undefined) args.gtin=values.gtin;
     if (values['max-items'] !== undefined) args.maxItems=Number(values['max-items']);
