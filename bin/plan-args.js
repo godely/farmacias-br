@@ -4,7 +4,7 @@ import {shoppingItems} from 'paguemenos-cli/plan';
 
 export const planUsage='farmacias plan "medicamento A" "medicamento B" [--retailer ID | --retailers ID,ID] (--cep CEP | --lat LAT --lon LON) [--brand-only A] [--include-generics B] [--quantity A=2] [--store nearest | --expand]';
 
-export function planArgs(argv) {
+export function coordinateArgs(argv) {
   const args=[];
   for (let i=0;i<argv.length;i++) {
     const arg=argv[i];
@@ -12,7 +12,11 @@ export function planArgs(argv) {
       args.push(arg+'='+argv[++i]);
     } else args.push(arg);
   }
-  const {values:v,positionals}=parseArgs({args,allowPositionals:true,options:{
+  return args;
+}
+
+export function planArgs(argv) {
+  const {values:v,positionals}=parseArgs({args:coordinateArgs(argv),allowPositionals:true,options:{
     retailer:{type:'string'},retailers:{type:'string'},cep:{type:'string'},lat:{type:'string'},lon:{type:'string'},
     store:{type:'string'},expand:{type:'boolean'},json:{type:'boolean'},
     ...Object.fromEntries(['quantity','sku','brand','generic','brand-only','include-generics'].map(name=>[name,{type:'string',multiple:true}])),

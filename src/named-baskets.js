@@ -61,13 +61,14 @@ function localItems(items,id) {
 
 async function planAtRetailer(id,items,{origin,store,expandSearch,includeBranchChoices,fixedOffers},source=providers[id]) {
   if (id==='drogasil') return planPurchase(items,{origin,store,expandSearch,includeBranchChoices,confirmBrands:true});
-  if (expandSearch) return {
-    retailerId:id, status:'branch_inventory_unverified',
-    reason:'A rede confirma retirada para a quantidade pedida. O estoque físico de cada filial é desconhecido.',
-  };
   if (fixedOffers) return quoteChosenOffers(id,source,items,origin.zipcode ?? origin);
   const lines=items.map(({selectedSku,quantity=1,...rest})=>({...rest,sku:selectedSku,quantity}));
-  return quoteShoppingList(id,source,lines,origin.zipcode ?? origin);
+  const result = await quoteShoppingList(id,source,lines,origin.zipcode ?? origin,undefined,{store,expandSearch,includeBranchChoices});
+  if (!result.checkout) return result;
+  const {checkout, ...inventory} = result;
+  if (inventory.stockEvidence === 'retailer_branch_snapshot') return result;
+  const {branchChoices, ...summary} = inventory;
+  return {...checkout,purchase:summary,coverage:inventory.coverage};
 }
 
 // Different products frequently quote the same pickup points. Keep every quote
@@ -102,8 +103,8 @@ function basketCoverage(results, fixed) {
   const allZero = !stockUnknown && results.every(r => r.coverage.allZero === true);
   return {checkedStores:known ? results.reduce((sum,r) => sum + r.coverage.checkedStores,0) : null,
     radiusKm:known && results.every(r => Number.isFinite(r.coverage.radiusKm))
-      ? Math.max(...results.map(r => r.coverage.radiusKm)) : null,
-    allZero, stockUnknown, canExpand:!fixed && allZero && results.every(r => r.coverage.canExpand === true)};
+      ? Math.min(...results.map(r => r.coverage.radiusKm)) : null,
+    allZero, stockUnknown, canExpand:!fixed && allZero && results.some(r => r.coverage.canExpand === true)};
 }
 
 export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:customPlan, clarify=nameChoices, providers:retailersById=providers}={}) {
@@ -133,7 +134,7 @@ export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:
     const resolution = choiceFollowup(choices, 'plan_purchase', followup, {...scope, query:line.query});
     return {status:'needs_name_confirmation', label:tableLabel(index), ...resolution, results:[]};
   }
-  const localArgs = args.expandSearch && !(ids.length === 1 && ids[0] === 'drogasil')
+  const localArgs = args.expandSearch && ids.length > 1
     ? {...args, expandSearch:false} : args;
   const planPickups = items.length > 1 && !localArgs.expandSearch;
   const quoteSubset = (id,indices,chosen) => chosen ? plan(id,chosen,{...localArgs,fixedOffers:true}) :
@@ -156,7 +157,7 @@ export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:
 
   async function lookup(id, options) {
     try {
-      const includeBranchChoices=id==='drogasil' && ids.length>1 && items.length>1 && !options.store && !options.expandSearch;
+      const includeBranchChoices=ids.length>1 && items.length>1 && !options.store && !options.expandSearch;
       const result=await plan(id,localItems(items,id),{...options,includeBranchChoices});
       return {...result, retailerId:id};
     } catch {
@@ -166,7 +167,7 @@ export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:
   let results = await Promise.all(ids.map(id => lookup(id, localArgs)));
   let coverage = basketCoverage(results, args.store);
   if (args.expandSearch && !localArgs.expandSearch && coverage.canExpand) {
-    results = await Promise.all(ids.map(id => lookup(id, args)));
+    results = await Promise.all(results.map(result => result.coverage?.canExpand ? lookup(result.retailerId,args) : result));
     coverage = {...basketCoverage(results, args.store), canExpand:false};
   }
   const comparison = planPickups && (ids.length > 1 || ids[0] !== 'drogasil')
@@ -180,7 +181,7 @@ export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:
     return compactPartnerAlternatives(await storeEvidence(result.retailerId,{...result,...(pickupPlans && {pickupPlans})}));
   }));
   const completeRetailers=summaries.filter(r=>r.status==='complete' || r.status==='fulfillable' ||
-    r.pickupPlans?.status==='complete').map(r=>r.retailerId);
+    r.checkout?.status==='fulfillable' || r.pickupPlans?.status==='complete').map(r=>r.retailerId);
   const {byRetailer,...overall} = comparison ?? {};
   return {scope:'whole_basket_per_retailer', checkedRetailers:ids, completeRetailers, coverage,
     results:summaries, ...(ids.length > 1 && comparison && {crossRetailerPlans:overall})};
@@ -193,4 +194,4 @@ export const purchaseDescription =
   'For “na minha loja mais próxima” set store to nearest and check one directory branch per selected chain. Use fixedStore for the branch identity and pickupAtStore for the outcome. A missing pickup offer at that store does not establish zero units. Once a fixed branch is checked, answer for it and finish. Check additional branches only if the shopper asks for them. For the nearest place offering pickup omit store. ' +
   'Use the manufacturer as supplied, including a short name such as “Prati”, when the shopper specifically requests it. On choose_manufacturer, ask which of the returned manufacturer names they mean. Preserve one item per requested medication, with brand choices and quantity. Retain local product selections by retailer in selectedSkus. ' +
   'For a multi-chain basket lead with a complete crossRetailerPlans plan, naming each store and what to pick up there. Empty completeRetailers only concerns each chain alone. When two plans differ, show the savings and extra stops. Compare verified product subtotals. '+
-  'When a basket is incomplete, identify the item and each chain’s lookup outcome. A catalog miss leaves local stock unknown. For a multi-chain result use every retailer result including failures. For one partner chain lead with pickupPlans for its verified stores. Compare fewest stores and lowest product subtotal. Report searchLimited or failed quotes as partial coverage. Drogasil reports branch quantities. Partner checkout confirms pickup for the requested packs.';
+  'When a basket is incomplete, identify the item and each chain’s lookup outcome. A catalog miss leaves local stock unknown. For a multi-chain result use every retailer result including failures. For one partner chain lead with pickupPlans for its verified stores. Compare fewest stores and lowest product subtotal. Report searchLimited or failed quotes as partial coverage. Quote branch quantities only from reported stock for that branch. A partner checkout confirms pickup of the requested packs. When a branch snapshot is present, include its observation time.';

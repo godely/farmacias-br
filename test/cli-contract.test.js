@@ -8,11 +8,6 @@ import test from 'node:test';
 const modules = fileURLToPath(new URL('../node_modules/', import.meta.url));
 const reference = process.env.FARMACIAS_REFERENCE_ROOT ?? join(modules,'drogasil-cli');
 const partners = ['paguemenos','drogariasaopaulo'];
-// Each exception requires branch-level evidence tracked in paguemenos-cli#8 and
-// drogariasaopaulo-cli#5. Adding a flag to help requires removing its exception
-// and adding the retail behavior test in the same change.
-const pending = {plan:['--expand'], compare:['--expand'], stock:['--all','--expand','--max-branches']};
-
 function executable(root, name) {
   const pkg = JSON.parse(readFileSync(join(root,'package.json'),'utf8'));
   return resolve(root,pkg.bin[name]);
@@ -20,7 +15,7 @@ function executable(root, name) {
 function invoke(bin, args, expected = 0) {
   const result = spawnSync(process.execPath,[bin,...args],{encoding:'utf8',timeout:15000});
   assert.equal(result.status,expected,[bin,...args,result.stderr].join(' '));
-  return expected === 0 ? result.stdout : result.stderr;
+  return expected === 0 ? result.stdout : (result.stderr || result.stdout);
 }
 function commands(help,name) {
   return [...help.matchAll(new RegExp('^\\s*'+name+' ([a-z][\\w-]*)','gm'))].map(match=>match[1]);
@@ -50,7 +45,7 @@ for (const retailer of partners) {
       const optionNames = Object.keys(options).map(key=>'--'+key);
       const advertised = new Set(help.match(/--[a-z][a-z-]*/g));
       const missing = optionNames.filter(option=>!advertised.has(option)).sort();
-      assert.deepEqual(missing,pending[command] ?? [],retailer+' '+command+' option gaps changed');
+      assert.deepEqual(missing,[],retailer+' '+command+' option gaps changed');
       assert.deepEqual(actions(help,command),actions(referenceHelp,command),retailer+' '+command+' subcommands');
       // Parse every advertised option. The final invalid option stops execution
       // before a catalog, stock or snapshot operation can reach the network.
