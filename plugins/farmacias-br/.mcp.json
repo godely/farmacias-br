@@ -4,7 +4,7 @@
       "command": "npx",
       "args": [
         "--yes",
-        "--package=https://codeload.github.com/godely/farmacias-br/tar.gz/910e6df13f9565752c995614d9dd941cae92ceb5",
+        "--package=https://codeload.github.com/godely/farmacias-br/tar.gz/d29ece6bc7ed5401afb298eca2d6e36150d8153b",
         "--",
         "farmacias-mcp"
       ]
