@@ -227,7 +227,7 @@ test('when a basket splits across chains, each pickup belongs to the nearest bra
 });
 
 test('shared pickup addresses retain each offer and its individual fee', () => {
-  const base={localStatus:'available',requestedQuantity:1};
+  const base={localStatus:'available',requestedQuantity:1,manufacturer:'Medquímica'};
   const point={channel:'pickup-in-point',pickupPointId:'one',distanceKm:0.8,address:{street:'Centro'}};
   const products=[{...base,sku:'1',pickupVerification:{status:'incomplete',unknownPoints:1},closestQuotedPickup:point,methods:[{...point,feeBRL:2}]},
     {...base,sku:'2',methods:[{...point,feeBRL:0},{channel:'delivery',feeBRL:4}]}];
@@ -235,6 +235,7 @@ test('shared pickup addresses retain each offer and its individual fee', () => {
   assert.equal(row.pickupPoints.length,1);
   assert.equal(row.pickupPoints[0].distanceKm,0.8);
   const [first,second]=row.tables[0].choices;
+  assert.equal(first.manufacturer,'Medquímica');
   assert.equal(first.pickupVerification.status,'incomplete');
   assert.equal(first.closestPickupPointId,'one'); assert.equal(second.closestPickupPointId,null);
   assert.equal(first.methods[0].feeBRL,2); assert.equal(second.methods[0].feeBRL,0);

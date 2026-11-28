@@ -51,6 +51,8 @@ Se a pessoa pedir para guardar preços, por exemplo “Guarda os preços de sham
 
 Se a pessoa pedir a coleta padrão, omita `queries`. O padrão pesquisa paracetamol e salva até 20 produtos por rede selecionada. Se pedir para guardar preços de “esse remédio”, use o nome já combinado na conversa.
 
+Confira o tamanho da caixa no nome do produto e na quantidade publicada na ficha. Nas coletas, use também `offers[].packageQuantities` quando disponível. Um endereço de página pode conservar o nome de uma embalagem antiga. Se a ficha e o título concordarem, use essa quantidade. Se divergirem entre si, diga “embalagem a confirmar” e peça a apresentação antes de comparar preços.
+
 Em perguntas sobre concentração, forma ou embalagem, responda aos dados pedidos e cite a ficha. Se perguntarem pelo receituário controlado, cite o campo `prescription.rule` que fundamenta `prescription.form`. Um código da loja não comprova a classificação legal. Quando faltar confirmação, diga “receituário não confirmado”.
 
 Quando a rede parceira devolver quantidade por filial com data de observação, informe a loja, a quantidade e o horário do dado. Uma oferta de retirada vale para o número de caixas pedido. Na ausência de contagem, diga «o site oferece retirada de uma caixa nessa loja» quando essa oferta estiver confirmada.
