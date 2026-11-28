@@ -3,6 +3,7 @@ import {planPurchase, resolveMedication} from 'drogasil-cli';
 import {quoteChosenOffers,quoteShoppingList,shoppingSource} from 'paguemenos-cli/plan';
 import {crossRetailerPlans} from 'paguemenos-cli/pickup-plans';
 import {providers} from './providers.js';
+import {nameChoices, choiceFollowup} from './name-choices.js';
 
 const allRetailers = Object.keys(providers);
 
@@ -90,7 +91,7 @@ export function compactPartnerAlternatives(result) {
   return {...summary, tables:tables.map(table => ({...table, choices})), pickupPoints:[...pickupPoints.values()]};
 }
 
-export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:customPlan}={}) {
+export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:customPlan, clarify=nameChoices}={}) {
   const {items,retailer}=args;
   const ids=selectedRetailers(args);
   const sources = new Map();
@@ -101,6 +102,15 @@ export async function planSelectedBaskets(args,{resolve=resolveMedication, plan:
   if (ids.length > 1 && items.some(line => line.selectedSku ||
       (/^\d+$/.test(line.query) && ids.some(id => !line.selectedSkus?.[id])))) {
     return {status:'requires_retailer', question:'De qual farmácia é esse produto?', results:[]};
+  }
+  for (const [index, line] of items.entries()) {
+    if (line.selectedSku || ids.every(id => line.selectedSkus?.[id]) || /^\d+$/.test(line.query)) continue;
+    const choices = await clarify(line.query);
+    if (!choices.length) continue;
+    const followup = query => ({...args, items:items.map((item, i) => i === index ? {...item, query} : item)});
+    const scope = retailer ? {retailer} : {retailers:ids};
+    const resolution = choiceFollowup(choices, 'plan_purchase', followup, {...scope, query:line.query});
+    return {status:'needs_name_confirmation', label:tableLabel(index), ...resolution, results:[]};
   }
   const planPickups = items.length > 1 && !args.store && !args.expandSearch;
   const quoteSubset = (id,indices,chosen) => chosen ? plan(id,chosen,{...args,fixedOffers:true}) :

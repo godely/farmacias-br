@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {planSelectedBaskets} from '../src/named-baskets.js';
+import {planSelectedBaskets as runPlan} from '../src/named-baskets.js';
+
+const planSelectedBaskets = (args, deps) => runPlan(args, {clarify:async () => [], ...deps});
 
 const ids=['drogasil','paguemenos','drogariasaopaulo'];
 const items=['A','B','C'].map(query => ({query,brand:query,includeGenerics:false}));

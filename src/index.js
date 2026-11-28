@@ -3,9 +3,10 @@ import { validGtin } from 'paguemenos-cli/vtex';
 import { compareOffers } from 'paguemenos-cli/compare';
 import {planSelectedBaskets, purchaseSchema} from './named-baskets.js';
 import { compareBaskets } from './baskets.js';
-import { retailerBasket, catalogInfo, catalogType } from 'drogasil-cli/retailer-workflows';
+import { retailerBasket, retailerComparison, catalogInfo, catalogType } from 'drogasil-cli/retailer-workflows';
 import { compareRetailPrices, getMedicationInfo, readSnapshot } from 'drogasil-cli';
 import { providers } from './providers.js';
+import { nameChoices, choiceFollowup } from './name-choices.js';
 import { startSnapshots } from './snapshot-scopes.js';
 
 export const retailerIds = Object.keys(providers);
@@ -24,10 +25,10 @@ export const schemas = {
   retailers: z.strictObject({}),
   search: z.strictObject({ query, retailer: retailer.optional(), retailers: selection.optional(), page: z.number().int().min(1).max(100).default(1),
     limit: z.number().int().min(1).max(100).default(10) }).refine(v=>!v.retailer || !v.retailers,'Use retailer ou retailers'),
-  suggest: z.strictObject({ query, retailer: partner.default('paguemenos'),
+  suggest: z.strictObject({ query, retailer: retailer.optional(), retailers: selection.optional(),
     declinedTerm: query.optional().describe('Previously proposed term the user declined. Return remaining suggestions.'),
     listAll: z.boolean().optional().describe('Use only when the user explicitly requests a list of terms.'),
-    limit: z.number().int().min(1).max(50).default(7) }),
+    limit: z.number().int().min(1).max(50).default(7) }).refine(v=>!v.retailer || !v.retailers,'Use retailer ou retailers'),
   product: z.strictObject({ retailer, sku:sku.optional(), skus:z.array(sku).min(1).max(100).optional(),
     gtin:z.string().refine(validGtin, 'GTIN inválido').optional() }).refine(
     args => [args.sku,args.skus,args.gtin].filter(Boolean).length === 1, 'Informe SKU, SKUs ou GTIN'),
@@ -71,7 +72,15 @@ function summary(row, id) {
 }
 
 export async function suggestTerms(args, sources = providers) {
-  const { query, retailer, limit, declinedTerm } = schemas.suggest.parse(args);
+  const { query, retailer = 'paguemenos', retailers, limit, declinedTerm } = schemas.suggest.parse(args);
+  if (retailers) {
+    const results = await Promise.all(retailers.map(id => suggestTerms({query, retailer:id, limit, declinedTerm}, sources)));
+    const suggestions = [...new Set(results.flatMap(group => group.suggestions))].slice(0, limit);
+    const failed = results.filter(group => group.status === 'source_failed').length;
+    const status = failed === results.length ? 'source_failed' : failed ? 'partial' :
+      suggestions.length ? 'suggestions' : 'no_suggestions';
+    return {retailers, results, suggestions, status};
+  }
   try {
     const source = sources[retailer];
     let suggestions = declinedTerm && source.alternatives
@@ -91,16 +100,33 @@ function termKey(value) {
   return value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, '');
 }
 
-export async function searchCatalog(args, sources = providers) {
+export async function searchCatalog(args, sources = providers, clarify = nameChoices) {
   const { query, retailer, retailers, page, limit } = schemas.search.parse(args);
   const ids = retailers ?? (retailer ? [retailer] : retailerIds);
+  const choices = await clarify(query);
+  if (choices.length) {
+    const scope = retailer ? {retailer} : {retailers:ids};
+    const followup = term => ({...scope, query:term, limit});
+    const resolution = choiceFollowup(choices, 'pharmacy_search', followup, {...scope, query});
+    return {page, limitPerRetailer:limit, ...resolution, results:ids.map(id => ({
+      retailerId:id, status:'needs_name_confirmation', products:[], suggestions:choices,
+      suggestionStatus:'suggestions', ...resolution,
+    }))};
+  }
   const results = await Promise.all(ids.map(async id => {
     try {
-      const rows = await sources[id].search(query, page, limit);
+      const source = sources[id];
+      let rows;
+      if (id !== 'drogasil' && source.byGtin && /\S\s.*\bgotas?\b/iu.test(query)) {
+        const matches = await retailerComparison({retailer:id, query, includeGenerics:false}, source);
+        rows = (matches.candidates ?? matches.products ?? []).slice((page - 1) * limit, page * limit);
+      } else {
+        rows = source.searchCatalog ? await source.searchCatalog(query, page, limit) : await source.search(query, page, limit);
+      }
       const group = { retailerId: id, status: rows.length ? 'matches' : 'no_match',
         products: rows.map(row => {
           const fields = summary(row, id);
-          if (id === 'paguemenos') {
+          if (id === 'paguemenos' && !fields.activeIngredients?.length) {
             const active = row.facts?.NomeSubstanciaPrincipioAtivo;
             fields.activeIngredients = [active].flat().filter(value => typeof value === 'string' && value.trim());
           }

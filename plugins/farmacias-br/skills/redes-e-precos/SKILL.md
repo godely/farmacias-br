@@ -17,9 +17,10 @@ Ordene verifiedOffers por preço e mostre rede, vendedor, preço de venda e cond
 
 Para uma pesquisa de catálogo sem localização, use pharmacy_search. Para um produto de uma rede específica, use pharmacy_product com a rede e o SKU. Para estoque em uma rede específica, use pharmacy_stock. A Drogasil informa unidades por filial. Pague Menos e Drogaria São Paulo confirmam atendimento para a quantidade solicitada. Preserve as diferenças entre nenhuma filial participante, estoque zero, quantidade desconhecida e falha temporária.
 
-Na Pague Menos e na Drogaria São Paulo, indique a rede solicitada em todas as chamadas. Envie à `pharmacy_search` exatamente o texto digitado, inclusive se parecer incompleto ou errado. Se vier `confirmation`, a primeira resposta ao usuário é somente a pergunta de `confirmation.question` (por exemplo, “Você quis dizer loratadina?”). Aguarde a resposta no chat. Faça isso para qualquer nome. A pessoa já sabe a qual proposta está respondendo.
+Nas três farmácias, preserve as redes escolhidas em cada etapa. Envie à `pharmacy_search` exatamente o texto digitado, inclusive se parecer incompleto ou errado. Se vier `confirmation`, a primeira resposta ao usuário é somente a pergunta de `confirmation.question` (por exemplo, “Você quis dizer loratadina?”). Aguarde a resposta no chat. Faça isso para qualquer nome. A pessoa já sabe a qual proposta está respondendo.
 
-- “Sim”, “isso” ou “pode” confirma o termo. Chame `pharmacy_search` uma vez com `confirmation.onYes` e apresente os produtos retornados.
+- Se a pergunta tiver um único nome, “sim”, “isso” ou “pode” confirma o termo. Use `confirmation.onYesTool` com `confirmation.onYes`. Em uma cesta, isso preserva os outros itens e as preferências.
+- Se vier `nameChoice`, faça a pergunta indicada. Quando a pessoa escolher um dos nomes, envie seu `onSelect` à ferramenta indicada. Uma resposta “sim” à pergunta “prednisona ou prednisolona?” exige saber qual dos dois ela quis dizer.
 - “Não” pede as outras sugestões. Chame `pharmacy_suggest` com `confirmation.onNo`, mostre as alternativas retornadas como termos de busca; quando forem concentrações do mesmo princípio ativo, identifique-as como refinamentos da busca. Apresente as opções e aguarde a escolha. Se estiverem vazias, peça outra grafia ou o nome da embalagem.
 - Uma escolha explícita vai direto para `pharmacy_search` na mesma rede. Se a pessoa pedir todas as sugestões desde o início, use `pharmacy_suggest` com `listAll: true`.
 
