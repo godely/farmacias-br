@@ -108,6 +108,8 @@ farmacias read_snapshot "$RUN_ID" --limit 5
 
 Quando a coleta omite os termos, ela pesquisa paracetamol nas redes escolhidas. O limite padrão é de 20 produtos por rede.
 
+Para conferir a coleta padrão nas sete combinações pelo CLI e pelo MCP, execute `node scripts/check-snapshot-scopes.mjs`. O teste ao vivo limita cada coleta a um produto por rede e confere a exportação. Para testar um termo explícito, passe-o como argumento.
+
 O teste de aceitação chama o MCP por stdio contra os catálogos reais, exercita os dois CEPs informados no momento do teste e descarta seu banco temporário de snapshots. Ele valida separadamente o escopo do preço, a quantidade consultada, o vendedor e a opção de retirada comum. Execute `node scripts/check-retailer-workflows.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"` com dois CEPs de teste para as cotações. O número de lojas e os preços variam.
 
 Para conferir a filial mais próxima nas duas redes parceiras, execute `node scripts/check-fixed-branch-pickup.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"`. A verificação cruza as respostas dos CLIs e do MCP com o diretório e a oferta de retirada publicados pela própria rede.

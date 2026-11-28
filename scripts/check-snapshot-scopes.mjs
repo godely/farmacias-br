@@ -12,7 +12,8 @@ import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
 
 const hosts = {drogasil:'www.drogasil.com.br', paguemenos:'www.paguemenos.com.br', drogariasaopaulo:'www.drogariasaopaulo.com.br'};
-const query = process.argv[2] ?? 'shampoo';
+const query = process.argv[2];
+const terms = query === undefined ? [] : [query];
 const dir = await mkdtemp(join(tmpdir(),'farmacias-snapshots-'));
 const env = {DROGASIL_SNAPSHOT_DB:join(dir,'runs.sqlite'), FARMACIAS_SENTRY_DSN:''};
 const run = promisify(execFile);
@@ -29,7 +30,7 @@ async function mcp(name,args) {
 }
 
 function verifyRow(row, retailer) {
-  assert.equal(row.searchQuery,query);
+  assert.equal(row.searchQuery,query ?? 'paracetamol');
   assert.equal(new URL(row.productUrl).hostname,hosts[retailer]);
   assert.equal(new URL(row.sourceUrl).hostname,hosts[retailer]);
   assert.ok(Number.isFinite(Date.parse(row.scrapedAt)));
@@ -53,8 +54,8 @@ try {
       const retailers = Object.keys(hosts).filter((_,i)=>mask & (1<<i));
       try {
         const {runs} = surface === 'cli'
-          ? await cli('snapshot',query,'--retailers',retailers.join(','),'--max-items','1')
-          : await mcp('snapshot',{queries:[query],retailers,maxItems:1});
+          ? await cli('snapshot',...terms,'--retailers',retailers.join(','),'--max-items','1')
+          : await mcp('snapshot',{...(terms.length && {queries:terms}),retailers,maxItems:1});
         assert.deepEqual(runs.map(r=>r.retailerId),retailers);
         assert.equal(new Set(runs.map(r=>r.runId)).size,runs.length);
         for (const {runId,retailerId} of runs) {
