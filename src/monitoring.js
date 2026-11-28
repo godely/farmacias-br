@@ -16,7 +16,7 @@ const sourceProblems = new Set(['failed', 'source_failed', 'catalog_lookup_faile
   'generic_lookup_failed', 'reference_lookup_failed', 'lookup_failed']);
 const incomplete = new Set(['incomplete_presentation', 'no_prices', 'unconfirmed_gtin', 'missing_gtin', 'presentation_unconfirmed', 'quantity_unverified']);
 const clarifications = new Set(['ambiguous', 'choose_reference', 'presentation_options', 'conflicting_release',
-  'needs_generic_preference', 'needs_name_confirmation', 'requires_cep']);
+  'needs_generic_preference', 'needs_name_confirmation', 'requires_retailer', 'requires_cep']);
 const uuid = () => randomUUID().replaceAll('-', '');
 
 function retailerId(value) {
@@ -39,6 +39,7 @@ function outcome(row = {}) {
   const status = row.status ?? row.state ?? row.localStatus;
   if (row.suggestionStatus === 'source_failed') return 'upstream_failure';
   if (row.suggestionStatus === 'suggestions') return 'clarification';
+  if (row.nationalStatus === 'source_failed' || row.brazil?.lookupFailed || (status === 'partial' && row.issues?.length)) return 'upstream_failure';
   if (sourceProblems.has(status) || row.failed?.length || row.isError) return 'upstream_failure';
   if (knownMiss.has(status) || row.unknownSku === true) return 'lookup_miss';
   if (row.scope === 'nearest' && row.nearestStore) {
@@ -106,6 +107,10 @@ export function observations(operation, args, result) {
     for (const row of result.checkedRetailers) {
       const issue = result.issues?.find(issue => issue.retailer === row.retailer && sourceProblems.has(issue.status));
       add(issue ?? row, args.query, retailerId(row.retailer));
+    }
+  } else if (operation === 'info' && Array.isArray(result.retailers) && result.results) {
+    for (const group of result.results) {
+      for (const row of group.results) add(row, row.query, retailerId(group.retailerId));
     }
   } else if (result.results?.length) {
     result.results.forEach((row, i) => add(row, args.query ?? args.queries?.[i], row.retailerId ? retailerId(row.retailerId) : base));

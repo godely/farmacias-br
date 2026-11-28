@@ -96,6 +96,7 @@ A CLI, a biblioteca, o HTTP e o MCP compartilham o registro de operações. Os n
 ```sh
 farmacias product --gtin 7899547543766 --retailer paguemenos
 farmacias info Tylenol loratadina --retailer drogariasaopaulo
+farmacias info Rivotril tansulosina --retailers paguemenos,drogariasaopaulo
 farmacias compare 3530 --retailer drogariasaopaulo --generics
 farmacias basket 3179:1 1633706:2 --retailer paguemenos --cep "$CEP"
 farmacias stores --retailer drogasil --limit 5
