@@ -6,7 +6,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 const retailer = process.argv[2] ?? 'paguemenos';
-const expectedSkus = {paguemenos:['6974','6981','7191'],drogariasaopaulo:['55956','56014','55611','268852']};
+const expectedSkus = {drogasil:['53472','77341','110166'],paguemenos:['6974','6981','7191'],drogariasaopaulo:['55956','56014','55611','268852']};
 assert.ok(Object.hasOwn(expectedSkus,retailer));
 const cases = {
   prefix: [
@@ -66,7 +66,7 @@ try {
             assert.deepEqual([...new Set(yes.products.map(p=>p.sku))].sort(),expectedSkus[retailer].slice().sort());
             assert.ok(yes.products.every(p=>p.retailerId===retailer && p.activeIngredients.some(a=>/\bmorfina\b/.test(norm(a)))));
             if (retailer!=='paguemenos') {
-              const source=retailer==='drogariasaopaulo'?'retailer_field':'matched_gtin';
+              const source='retailer_field';
               assert.ok(yes.products.every(p=>p.ingredientEvidence?.source===source));
             }
           }

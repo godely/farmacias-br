@@ -112,3 +112,5 @@ farmacias plan "Patz GTS em gotas, frasco de 20 mL" "loratadina 10 mg" --retaile
 ```
 
 O MCP recebe a mesma consulta em uma chamada a `plan_purchase`. Uma marca sem preferência definida gera uma pergunta antes da consulta de compra. Use `--quantity A=2` para pedir duas embalagens e `--sku A=paguemenos:123` para manter uma escolha de SKU naquela rede. A resposta agrupa as cestas por farmácia e preserva o estoque desconhecido, as escolhas pendentes e as falhas de consulta. Os planos de compra se referem a filiais de uma mesma rede. Cada cotação informa se há um ponto de retirada comum a todos os itens.
+
+Para consultar uma grafia em redes específicas, use `farmacias search morfi --retailers drogasil,paguemenos`. A confirmação comum inclui os argumentos que mantêm a seleção no “sim” e no “não”. Para ver as alternativas após recusar, use `farmacias suggest morfi --declined morfina --retailers drogasil,paguemenos`. O campo `activeIngredients` identifica a composição das apresentações confirmadas.
