@@ -6,6 +6,16 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 
 const dsn = 'https://bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb@example.invalid/2';
+test('a failed snapshot start is reported under its own retailer', () => {
+  const rows = observations('pharmacy_snapshot',{queries:['private term']},{runs:[
+    {retailerId:'drogariasaopaulo',state:'running',runId:'private-id'},
+    {retailerId:'paguemenos',state:'failed',error:'snapshot_start_failed'},
+  ]});
+  assert.equal(rows.length, 2);
+  assert.equal(rows[1].retailer,'paguemenos');
+  assert.equal(rows[1].outcome,'upstream_failure');
+  assert.doesNotMatch(JSON.stringify(rows),/private/);
+});
 test('records the failed basket line, ordinary zero stock, and the successful denominator without personal data', async () => {
   const envelopes = [], journal = [];
   const monitor = createMonitoring(dsn, { journal: line => journal.push(line), send: async (url, init) => {

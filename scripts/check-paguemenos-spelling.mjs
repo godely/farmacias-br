@@ -6,7 +6,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 const retailer = process.argv[2] ?? 'paguemenos';
-const expectedSkus = {paguemenos:['6974','6981','7191'],drogariasaopaulo:['55956','56014','55611','268852']};
+const expectedSkus = {drogasil:['53472','77341','110166'],paguemenos:['6974','6981','7191'],drogariasaopaulo:['55956','56014','55611','268852']};
 assert.ok(Object.hasOwn(expectedSkus,retailer));
 const cases = {
   prefix: [
@@ -62,12 +62,12 @@ try {
           const yes = (await call('pharmacy_search',{...group.confirmation.onYes, limit:query==='morfi'?50:1})).results[0];
           assert.equal(yes.status, 'matches', 'accepted term has no catalog matches');
           if (query === 'morfi') {
-            assert.ok(no.suggestions.length);
+            assert.ok(no.suggestions.every(other => !/\bmorfina\b/i.test(other)));
+            assert.equal(no.interaction, no.suggestions.length ? 'awaiting_alternative_name' : 'awaiting_spelling');
             assert.deepEqual([...new Set(yes.products.map(p=>p.sku))].sort(),expectedSkus[retailer].slice().sort());
             assert.ok(yes.products.every(p=>p.retailerId===retailer && p.activeIngredients.some(a=>/\bmorfina\b/.test(norm(a)))));
             if (retailer!=='paguemenos') {
-              const source=retailer==='drogariasaopaulo'?'retailer_field':'matched_gtin';
-              assert.ok(yes.products.every(p=>p.ingredientEvidence?.source===source));
+              assert.ok(yes.products.every(p=>p.ingredientEvidence?.source==='retailer_field'));
             }
           }
           outcome = 'confirmed';

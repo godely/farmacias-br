@@ -6,9 +6,12 @@ import { execFileSync } from 'node:child_process';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { localApp, catalogReply } from '../src/server.js';
-import { getStock, listRetailers, request, searchCatalog, suggestTerms } from '../src/index.js';
+import { localApp, catalogReply, shoppingReply, toolReply } from '../src/server.js';
+import { getStock, listRetailers, request, searchCatalog as runCatalogSearch, suggestTerms } from '../src/index.js';
 import { observations } from '../src/monitoring.js';
+
+// These fixtures exercise provider suggestions after the shared name check.
+const searchCatalog = (args, sources) => runCatalogSearch(args, sources, async () => []);
 
 test('one source outage leaves separate catalog outcomes and preserves retailer-specific SKU identity', async () => {
   const sources = Object.fromEntries(listRetailers().map(({id}) => [id, { search: async () => [{sku: '1', name: 'Exemplo Genérico'}] }]));
@@ -59,7 +62,7 @@ test('a Pague Menos prefix returns terms until the caller selects one, then expo
   const terms = await suggestTerms({query: 'morfi'}, sources);
   assert.ok(terms.suggestions.includes('morfina'));
   assert.deepEqual(searched, ['morfi', 'morfina', 'morfi']);
-  await assert.rejects(suggestTerms({...args, retailer:'drogasil'}, sources));
+  assert.equal((await suggestTerms({...args, retailer:'drogasil'}, {drogasil:sources.paguemenos})).status, 'suggestions');
 });
 
 test('a suggestion outage preserves the catalog miss, and a failed catalog does not initiate suggestions', async () => {
@@ -93,7 +96,7 @@ test('MCP exposes one question, routes yes to the named retailer and excludes th
     ranking = [term+' gotas', term.toUpperCase(), query, term+' 10mg'];
     const no = group.confirmation.onNo;
     assert.deepEqual(catalogReply('suggest', no, await suggestTerms(no,sources)), {
-      retailerId:'paguemenos', status:'suggestions', suggestions:[term+' gotas',term+' 10mg'] });
+      retailerId:'paguemenos', status:'no_suggestions', suggestions:[] });
     ranking = [term];
     assert.equal((await suggestTerms(no, sources)).status, 'no_suggestions');
     ranking = [];
@@ -103,7 +106,7 @@ test('MCP exposes one question, routes yes to the named retailer and excludes th
 
 test('bounded and strict public inputs', async () => {
   for (const [operation, input] of [
-    ['constructor',{}],['search',{query:' '}],['search',{query:'x',limit:51}],['search',{query:'x',retailer:'other'}],
+    ['constructor',{}],['search',{query:' '}],['search',{query:'x',limit:101}],['search',{query:'x',retailer:'other'}],
     ['stock',{retailer:'drogasil',sku:'1',zipcode:'00000-000'}],['stock',{retailer:'drogasil',sku:'1',zipcode:'01001000',quantity:-2}],
     ['product',{sku:'2'}],['retailers',{zipcode:'private'}],['prices',{query:'x',zipcode:'wrong'}],
   ]) await assert.rejects(request(operation,input));
@@ -129,6 +132,8 @@ test('CLI, HTTP, HTTP MCP and stdio MCP expose the same registry', async t => {
     const client = new Client({name:'integration',version:'1'}); await client.connect(transport);
     try {
       const {tools} = await client.listTools();
+      assert.match(client.getInstructions(), /Accept a supplied SKU silently/);
+      assert.ok(tools.every(tool => tool.description.includes('Never ask for, mention, or display a SKU')));
       const active=['drogasil','paguemenos','drogariasaopaulo'];
       assert.deepEqual(listRetailers().map(p=>p.id),active);
       for (const tool of tools) {
@@ -141,9 +146,24 @@ test('CLI, HTTP, HTTP MCP and stdio MCP expose the same registry', async t => {
       assert.equal(tools.find(t=>t.name==='pharmacy_snapshot').annotations.readOnlyHint,false);
       assert.equal(tools.find(t=>t.name==='pharmacy_basket').annotations.readOnlyHint,true);
       assert.deepEqual((await client.callTool({name:'pharmacy_retailers',arguments:{}})).structuredContent.retailers,listRetailers());
+      assert.ok(tools.find(t=>t.name==='plan_purchase').inputSchema.properties.retailer);
+      assert.ok(tools.find(t=>t.name==='pharmacy_compare').inputSchema.properties.store);
+      assert.ok((await client.callTool({name:'pharmacy_compare',arguments:{retailer:'paguemenos',query:'produto',store:'nearest',includeGenerics:false}})).isError);
       assert.ok((await client.callTool({name:'pharmacy_stock',arguments:{sku:'1'}})).isError);
     } finally {await client.close()}
   }
+});
+
+
+test('a completed fixed-store checkout directs the client to answer without widening the search',()=>{
+  const args={retailer:'paguemenos',store:'nearest'};
+  const value={status:'pickup_not_offered',planningScope:'one_pack_alternatives',fixedStore:{branch:{id:'1'}},tables:[]};
+  const result=shoppingReply(toolReply('plan_purchase',args,value));
+  assert.equal(result.structuredContent.nextAction,'answer_for_selected_branch');
+  assert.equal(result.structuredContent.storeScope,'fixed_branch');
+  assert.equal(result.structuredContent.priceGuidance,undefined);
+  assert.match(result.content[0].text,/encerre o turno/);
+  assert.equal(toolReply('plan_purchase',{},value).structuredContent.nextAction,undefined);
 });
 
 test('coordinate-only origins reach the point-capable retailer and request a CEP for delivery quotes', async () => {
@@ -151,7 +171,9 @@ test('coordinate-only origins reach the point-capable retailer and request a CEP
   const row={sku:'42',name:'Example'};
   const sources={drogasil:{product:async()=>[row],local:async(arg,origin)=>{assert.deepEqual(origin,coordinates);return arg}}};
   assert.equal((await getStock({retailer:'drogasil',sku:'42',coordinates},sources)).status,'checked');
-  assert.equal((await getStock({retailer:'paguemenos',sku:'42',coordinates})).status,'requires_cep');
+  for(const retailer of ['paguemenos','drogariasaopaulo']) {
+    assert.equal((await getStock({retailer,sku:'42',coordinates},{[retailer]:sources.drogasil})).status,'checked');
+  }
   assert.equal((await request('prices',{query:'42',coordinates})).status,'requires_cep');
 });
 
@@ -186,7 +208,6 @@ test('a full DCB prefix completion takes priority over a similar brand', async (
 });
 
 test('a text-only client gets the exact prompt and executable follow-ups', async () => {
-  const { toolReply } = await import('../src/server.js');
   const args = {retailer:'paguemenos',query:'exem'};
   const res = toolReply('search', args, {results:[{retailerId:args.retailer, products:[], suggestions:['exemplo','exemplo 10mg']}]});
   assert.equal(res.structuredContent.reply, 'Você quis dizer exemplo?');
@@ -204,13 +225,78 @@ test('both partner chains keep the retailer on yes and ask it for alternatives o
     assert.equal(group.confirmation.question,'Você quis dizer morfina?');
     assert.deepEqual(group.confirmation.onYes,{query:'morfina',retailer});
     const no=await suggestTerms(group.confirmation.onNo,{[retailer]:source});
-    assert.deepEqual(no,{status:'suggestions',retailerId:retailer,suggestions:['morfina 10 mg']});
+    assert.deepEqual(no,{status:'no_suggestions',retailerId:retailer,suggestions:[]});
+    const reply=toolReply('suggest',group.confirmation.onNo,no);
+    assert.equal(reply.structuredContent.interaction,'awaiting_spelling');
+    assert.match(reply.content[0].text,/outra parte do nome/);
   }
+});
+
+test('a partial alternatives lookup names only terms actually returned by the selected chains',async()=>{
+  const args={query:'loratadnia',declinedTerm:'loratadina',retailers:['paguemenos','drogariasaopaulo']};
+  const data=await suggestTerms(args,{paguemenos:{suggest:async()=>['loratadina xarope','desloratadina']},
+    drogariasaopaulo:{suggest:async()=>{throw Error('offline');}}});
+  assert.deepEqual(data.suggestions,['desloratadina']);
+  const reply=toolReply('suggest',args,data).structuredContent;
+  assert.equal(reply.interaction,'awaiting_alternative_name');
+  assert.equal(reply.reply,'Parte das redes não respondeu. Encontrei desloratadina. Qual desses nomes aparece na caixa?');
 });
 
 test('directory outage, unknown item and insufficient local evidence have separate stock outcomes', async()=>{
   const args={retailer:'paguemenos',sku:'42',zipcode:'01001000'};
   for (const provider of [{serves:async()=>{throw Error('offline')}},{product:async()=>{throw Error('offline')}}]) {
     assert.equal((await getStock(args,{paguemenos:provider})).status,'source_failed');
+  }
+});
+
+test('a broad counter question asks for one missing detail while preserving all catalog choices', () => {
+  const names = ['Exemplo 750 mg 10 comprimidos', 'Exemplo 750 mg 20 comprimidos'];
+  for (const table of [
+    { status: 'presentation_options', candidates: names },
+    { status: 'ambiguous', candidates: names },
+    { status: 'choose_reference', choices: names },
+  ]) {
+    const tables = [table, { status: 'matches', rows: [{ name: 'Outro produto' }] }];
+    const reply = shoppingReply({ structuredContent: { tables }, content: [] });
+    assert.deepEqual(reply.structuredContent.tables, tables);
+    assert.deepEqual(JSON.parse(reply.content[1].text), reply.structuredContent);
+    assert.equal(reply.content[0].text, reply.structuredContent.presentationGuidance);
+    assert.match(reply.content[0].text, /uma pergunta curta/);
+  }
+  for (const table of [
+    { status: 'matches', rows: names }, { status: 'catalog_lookup_failed' },
+    { status: 'ambiguous', nameCandidates: names }, { status: 'choose_reference', choices: [] },
+  ]) {
+    const original = { structuredContent: { tables: [table] }, content: [] };
+    assert.equal(shoppingReply(original), original);
+  }
+});
+
+test('known pickup and physical inventory give a price follow-up for the original item', () => {
+  for (const data of [
+    { coverage:{canExpand:false}, tables:[{lowestPricedStockedOption:'A1',rows:[{option:'A1',referencePriceBRL:5}]}] },
+    { planningScope:'one_pack_alternatives', lowestPricedPickup:{currentPrice:5,branchQuantity:null} },
+  ]) {
+    const reply=shoppingReply({structuredContent:data,content:[]});
+    assert.match(reply.structuredContent.priceGuidance,/comece pela opção disponível de menor preço/);
+    assert.match(reply.content[0].text,/consulta inteira/);
+    assert.deepEqual(JSON.parse(reply.content[1].text),reply.structuredContent);
+  }
+});
+
+test('a pickup offer leaves reservation and readiness unconfirmed, including at a 24-hour store', () => {
+  const offer = { branch: 'Loja 24 horas', channel: 'pickup-in-point', requestedQuantity: 1 };
+  const expected = { orderPlacedByTool: false, reservation: 'unconfirmed', readyForPickup: 'unconfirmed' };
+  for (const name of ['plan_purchase', 'stock', 'prices', 'basket', 'baskets', 'compare']) {
+    const args = { coordinates: { latitude: 0, longitude: 0 } };
+    const response = toolReply(name, args, { offers: [offer] });
+    const data = (name === 'plan_purchase' ? shoppingReply(response) : response).structuredContent;
+    assert.deepEqual(data.orderEvidence, expected);
+    assert.deepEqual(JSON.parse(response.content.at(-1).text).orderEvidence, expected);
+    assert.deepEqual(data.offers, [offer]);
+  }
+  for (const name of ['info', 'search', 'compare']) {
+    const response = toolReply(name, {}, { results: [] });
+    assert.equal(response.structuredContent.orderEvidence, undefined);
   }
 });

@@ -1,0 +1,278 @@
+[
+  {
+    "id": "tylenol-pack",
+    "retailer": "drogasil",
+    "observedOn": "2026-11-28",
+    "query": "Tylenol de 750 com vinte comprimidos",
+    "candidates": [
+      "Tylenol Paracetamol 750mg Múltiplas Dores 10 comprimidos",
+      "Tylenol Paracetamol 750mg Múltiplas Dores 20 comprimidos",
+      "Tylenol Múltiplas Dores Paracetamol 750mg 4 comprimidos"
+    ],
+    "sources": [
+      "https://www.drogasil.com.br/tylenol-750mg-10-comprimidos.html",
+      "https://www.drogasil.com.br/tylenol-750mg-20-comprimidos.html",
+      "https://www.drogasil.com.br/tylenol-star-power-750mg-4-comprimidos.html"
+    ],
+    "expected": 1
+  },
+  {
+    "id": "tylenol-pack-ambiguous",
+    "retailer": "drogasil",
+    "observedOn": "2026-11-28",
+    "query": "Tylenol de 750 em comprimido",
+    "candidates": [
+      "Tylenol Paracetamol 750mg Múltiplas Dores 10 comprimidos",
+      "Tylenol Paracetamol 750mg Múltiplas Dores 20 comprimidos",
+      "Tylenol Múltiplas Dores Paracetamol 750mg 4 comprimidos"
+    ],
+    "sources": [
+      "https://www.drogasil.com.br/tylenol-750mg-10-comprimidos.html",
+      "https://www.drogasil.com.br/tylenol-750mg-20-comprimidos.html",
+      "https://www.drogasil.com.br/tylenol-star-power-750mg-4-comprimidos.html"
+    ],
+    "expected": "esclarecer"
+  },
+  {
+    "id": "tylenol-drops",
+    "retailer": "drogasil",
+    "observedOn": "2026-11-28",
+    "query": "Tilenol em gotas de 200 mg/mL, 15 mL",
+    "candidates": [
+      "Tylenol Paracetamol Bebê 100mg/ml Suspensão Oral Sabor Frutas 15ml",
+      "Tylenol Paracetamol 200mg/ml Solução Gotas 15ml",
+      "Tylenol Criança Paracetamol 32mg/ml Suspensão Oral Sabor Frutas 60ml"
+    ],
+    "sources": [
+      "https://www.drogasil.com.br/tylenol-bebe-gotas-15-ml.html",
+      "https://www.drogasil.com.br/tylenol-gotas-15-ml.html",
+      "https://www.drogasil.com.br/tylenol-crianca-supensao-60-ml.html"
+    ],
+    "expected": 1
+  },
+  {
+    "id": "dorflex-family",
+    "retailer": "drogasil",
+    "observedOn": "2026-11-28",
+    "query": "Dorflex UNO um grama com dez, sem kit",
+    "candidates": [
+      "Dorflex UNO Dipirona 1g 20 comprimidos",
+      "Dorflex DIP Dipirona 1g 10 comprimidos",
+      "Dorflex UNO Dipirona 1g 10 comprimidos",
+      "Kit Dorflex Analgésico e Relaxante Muscular 50 comprimidos + Dorflex UNO Dipirona 1g 20 comprimidos"
+    ],
+    "sources": [
+      "https://www.drogasil.com.br/dorflex-uno-enxaqueca-g-com-20-comprimidos.html",
+      "https://www.drogasil.com.br/dorflex-dipirona-1g-com-10-comprimidos.html",
+      "https://www.drogasil.com.br/dorflex-uno-1g-com-10-comprimidos.html",
+      "https://www.drogasil.com.br/kit-dorflex-analgesico-e-relaxante-muscular-50-comprimidos-dorflex-uno-dipirona-1g-20-comprimidos-1346277.html"
+    ],
+    "expected": 2
+  },
+  {
+    "id": "dorflex-absent-pack",
+    "retailer": "drogasil",
+    "observedOn": "2026-11-28",
+    "query": "Dorflex MAX, preciso da caixa de 30 comprimidos",
+    "candidates": [
+      "Dorflex MAX Analgésico e Relaxante Muscular 16 comprimidos",
+      "Dorflex MAX Analgésico e Relaxante Muscular 8 comprimidos",
+      "Dorflex MAX Analgésico e Relaxante Muscular 4 comprimidos"
+    ],
+    "sources": [
+      "https://www.drogasil.com.br/dorflex-max-16-comprimidos.html",
+      "https://www.drogasil.com.br/dorflex-max-8-comprimidos.html",
+      "https://www.drogasil.com.br/dorflex-max-4-comprimidos.html"
+    ],
+    "expected": "nenhuma"
+  },
+  {
+    "id": "allegra-combo",
+    "retailer": "paguemenos",
+    "observedOn": "2026-11-28",
+    "query": "Só a caixa de Allegra 180 com dez comprimidos, sem kit",
+    "candidates": [
+      "Kit Allegra 180mg 10 Comprimidos Revestidos Com Novalgina 1g 20 Comprimidos",
+      "Allegra 180mg 10 Comprimidos Revestidos",
+      "Allegra 180mg 20 Comprimidos Revestidos",
+      "Kit Allegra 180mg 10 Comprimidos + Novalgina Dipirona 1g 10 Comprimidos"
+    ],
+    "sources": [
+      "https://www.paguemenos.com.br/kit-allegra-cloridrato-de-fexofenadina-180mg-10-comprimidos---novalgina-1g-20-comprimidos/p",
+      "https://www.paguemenos.com.br/antialergico-allegra-180mg-com-10-comprimidos/p",
+      "https://www.paguemenos.com.br/kit-2-unidades-allegra-180mg-antialergico-10-comprimidos-revestidos/p",
+      "https://www.paguemenos.com.br/kit-allegra-180mg-10-comprimidos---novalgina-dipirona-1g-10-comprimidos/p"
+    ],
+    "expected": 1
+  },
+  {
+    "id": "allegra-ambiguous",
+    "retailer": "paguemenos",
+    "observedOn": "2026-11-28",
+    "query": "Allegra 120 comprimido",
+    "candidates": [
+      "Allegra 120mg 10 Comprimidos Revestidos",
+      "Antialérgico Allegra 120mg 2 Comprimidos",
+      "Antialérgico Allegra 120mg 20 Comprimidos"
+    ],
+    "sources": [
+      "https://www.paguemenos.com.br/antialergico-allegra-120mg-com-10-comprimidos/p",
+      "https://www.paguemenos.com.br/antialergico-allegra-120mg-com-2-comprimidos/p",
+      "https://www.paguemenos.com.br/allegra-120mg-com-20-comprimidos/p"
+    ],
+    "expected": "esclarecer"
+  },
+  {
+    "id": "allegra-variant",
+    "retailer": "paguemenos",
+    "observedOn": "2026-11-28",
+    "query": "Allegra D, 60 miligramas com dez",
+    "candidates": [
+      "Antialérgico Allegra 60mg 10 Comprimidos",
+      "Antialérgico Allegra D 60mg 10 Comprimidos",
+      "Kit Antialérgico Allegra 60mg 10 Comprimidos + Novalgina 1g 10 Comprimidos"
+    ],
+    "sources": [
+      "https://www.paguemenos.com.br/antialergico-allegra-60mg-com-10-comprimidos/p",
+      "https://www.paguemenos.com.br/allegra-d-com-10-comprimidos/p",
+      "https://www.paguemenos.com.br/kit-antialergico-allegra-60mg-10-comprimidos---novalgina-1g-10-comprimidos/p"
+    ],
+    "expected": 1
+  },
+  {
+    "id": "novalgina-pack",
+    "retailer": "paguemenos",
+    "observedOn": "2026-11-28",
+    "query": "Novalgina em gotas, frasco de 20 mL",
+    "candidates": [
+      "Novalgina Gotas Dipirona 20ml para Febre e Dor",
+      "Novalgina Gotas Dipirona 10ml para Febre e Dor",
+      "Novalgina Infantil Dipirona 50mg/ml Sabor Framboesa Solução Oral 100ml + Copo Dosador para Febre e Dor"
+    ],
+    "sources": [
+      "https://www.paguemenos.com.br/novalgina-gotas-20ml-frasco-de-vidro/p",
+      "https://www.paguemenos.com.br/analgesico-e-antitermico-novalgina-em-gotas-10ml/p",
+      "https://www.paguemenos.com.br/novalgina-infantil-solucao-oral-sabor-framboesa-100ml-com-copo-dosador/p"
+    ],
+    "expected": 0
+  },
+  {
+    "id": "novalgina-absent-form",
+    "retailer": "paguemenos",
+    "observedOn": "2026-11-28",
+    "query": "Novalgina efervescente de 500 mg com dez",
+    "candidates": [
+      "Novalgina 1g Sabor Limão 2 Comprimidos Efervescentes",
+      "Novalgina 1g Sabor Limão 10 Comprimidos Efervescentes",
+      "Novalgina 500mg Dipirona 10 Comprimidos para Dor e Febre"
+    ],
+    "sources": [
+      "https://www.paguemenos.com.br/novalgina-1g-com-2-comprimidos-efervescentes/p",
+      "https://www.paguemenos.com.br/novalgina-1g-com-10-comprimidos-efervescentes/p",
+      "https://www.paguemenos.com.br/novalgina-500mg-envelope-com-10-comprimidos/p"
+    ],
+    "expected": "nenhuma"
+  },
+  {
+    "id": "neosaldina-typo",
+    "retailer": "drogariasaopaulo",
+    "observedOn": "2026-11-28",
+    "query": "Neosladina em gotas de 15 ml",
+    "candidates": [
+      "Neosaldina Muscular Max Extraforte 600mg 8 Comprimidos Revestidos",
+      "Analgésico e Anti-inflamatório Neosaldina 15ml Gotas",
+      "Analgésico, Antitérmico e Anti-inflamatório Neosaldina 30mg + 300mg + 30mg 4 Drágeas"
+    ],
+    "sources": [
+      "https://www.drogariasaopaulo.com.br/neosaldina-muscular-max-extraforte-600mg-8-comprimidos-revestidos/p",
+      "https://www.drogariasaopaulo.com.br/neosaldina-solucao-15ml/p",
+      "https://www.drogariasaopaulo.com.br/neosaldina-takeda-4-drageas/p"
+    ],
+    "expected": 1
+  },
+  {
+    "id": "neosaldina-pack",
+    "retailer": "drogariasaopaulo",
+    "observedOn": "2026-11-28",
+    "query": "Neosaldina muscular max 600 com 16 comprimidos",
+    "candidates": [
+      "Neosaldina Muscular Max Extraforte 600mg 8 Comprimidos Revestidos",
+      "Analgésico e Relaxante Muscular Neosaldina Muscular 300mg 30 Comprimidos Revestidos",
+      "Analgésico e Relaxante Muscular Neosaldina Muscular Max 600mg 16 Comprimidos Revestidos",
+      "Analgésico e Relaxante Muscular Neosaldina Muscular Max 600mg 4 Comprimidos Revestidos"
+    ],
+    "sources": [
+      "https://www.drogariasaopaulo.com.br/neosaldina-muscular-max-extraforte-600mg-8-comprimidos-revestidos/p",
+      "https://www.drogariasaopaulo.com.br/analgesico-e-relaxante-muscular-neosaldina-muscular-300mg-30-comprimidos-revestidos/p",
+      "https://www.drogariasaopaulo.com.br/analgesico-e-relaxante-muscular-neosaldina-muscular-max-600mg-16-comprimidos-revestidos/p",
+      "https://www.drogariasaopaulo.com.br/analgesico-e-relaxante-muscular-muscular-max-600mg-4-comprimidos-revestidos/p"
+    ],
+    "expected": 2
+  },
+  {
+    "id": "neosaldina-ambiguous",
+    "retailer": "drogariasaopaulo",
+    "observedOn": "2026-11-28",
+    "query": "Neosaldina Dip de um grama",
+    "candidates": [
+      "Analgésico Neosaldina Dip 1g 4 Comprimidos",
+      "Analgésico e Antitérmico Neosaldina Dip 1g 10 Comprimidos",
+      "Analgésico e Antitérmico Neosaldina Dip 1g 20 Comprimidos"
+    ],
+    "sources": [
+      "https://www.drogariasaopaulo.com.br/neosaldina-dip-1g-4-comprimidos/p",
+      "https://www.drogariasaopaulo.com.br/neosaldina-dip-1g-10-comprimidos/p",
+      "https://www.drogariasaopaulo.com.br/neosaldina-dip-1g-cosmed-30-comprimidos/p"
+    ],
+    "expected": "esclarecer"
+  },
+  {
+    "id": "buscopan-drops",
+    "retailer": "drogariasaopaulo",
+    "observedOn": "2026-11-28",
+    "query": "Buscopan gotas pediátrico, 10 mg por mL com 20 mL",
+    "candidates": [
+      "Analgésico Buscopan Pediátrico 10mg/ml 20ml Gotas",
+      "Buscopan 20mg Boehringer 1ml 5 Ampolas Injetável",
+      "Buscopan 4mg/ml + 500mg/ml Boehringer 5ml 3 Ampolas Composto Injetável Buscopan Composto Injetável 4mg/ml + 500mg/ml 5ml 3 Ampolas"
+    ],
+    "sources": [
+      "https://www.drogariasaopaulo.com.br/buscopan-pediatrico-10mg-ml-cosmed-1-frasco-gotejador-com-20ml-de-solucao---seringa-dosadora/p",
+      "https://www.drogariasaopaulo.com.br/buscopan-injetavel-200mg-boehringer-5x1ml/p",
+      "https://www.drogariasaopaulo.com.br/buscopan-composto-injetavel-3x5ml/p"
+    ],
+    "expected": 0
+  },
+  {
+    "id": "buscopan-injection",
+    "retailer": "drogariasaopaulo",
+    "observedOn": "2026-11-28",
+    "query": "Buscopan 20 mg em cinco ampolas de 1 mL",
+    "candidates": [
+      "Buscopan 20mg Boehringer 1ml 5 Ampolas Injetável",
+      "Buscopan 4mg/ml + 500mg/ml Boehringer 5ml 3 Ampolas Composto Injetável Buscopan Composto Injetável 4mg/ml + 500mg/ml 5ml 3 Ampolas"
+    ],
+    "sources": [
+      "https://www.drogariasaopaulo.com.br/buscopan-injetavel-200mg-boehringer-5x1ml/p",
+      "https://www.drogariasaopaulo.com.br/buscopan-composto-injetavel-3x5ml/p"
+    ],
+    "expected": 0
+  },
+  {
+    "id": "buscopan-absent-form",
+    "retailer": "drogariasaopaulo",
+    "observedOn": "2026-11-28",
+    "query": "Buscopan em comprimidos, caixa de vinte",
+    "candidates": [
+      "Analgésico Buscopan Pediátrico 10mg/ml 20ml Gotas",
+      "Buscopan 20mg Boehringer 1ml 5 Ampolas Injetável",
+      "Buscopan 4mg/ml + 500mg/ml Boehringer 5ml 3 Ampolas Composto Injetável Buscopan Composto Injetável 4mg/ml + 500mg/ml 5ml 3 Ampolas"
+    ],
+    "sources": [
+      "https://www.drogariasaopaulo.com.br/buscopan-pediatrico-10mg-ml-cosmed-1-frasco-gotejador-com-20ml-de-solucao---seringa-dosadora/p",
+      "https://www.drogariasaopaulo.com.br/buscopan-injetavel-200mg-boehringer-5x1ml/p",
+      "https://www.drogariasaopaulo.com.br/buscopan-composto-injetavel-3x5ml/p"
+    ],
+    "expected": "nenhuma"
+  }
+]

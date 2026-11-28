@@ -105,11 +105,30 @@ try {
       });
     }
     await check(retailer,'coordinate-only and unknown stock SKU',async()=>{
-      const geo=await call('stock',{...args,sku,coordinates:{latitude:0,longitude:0}});
-      assert.equal(geo.status,'requires_cep');
+      const directory=await call('stores',{...args,zipcode:origins[0],limit:3});
+      const branch=directory.stores.find(b=>Number.isFinite(b.address?.latitude) && Number.isFinite(b.address?.longitude));
+      assert.ok(branch,'Directory needs one geolocated branch');
+      const {latitude,longitude}=branch.address;
+      const geo=await call('stock',{...args,sku,coordinates:{latitude,longitude}});
+      assert.equal(geo.status,'checked');
+      assert.ok(geo.offers.every(o=>o.localStatus!=='available'||o.priceScope==='verified_for_coordinates'));
       const missing=await call('stock',{...args,sku:'999999999',zipcode:origins[0]});
       assert.equal(missing.status,'unknown_sku');
       assert.deepEqual(missing.offers,[]);
+    });
+    await check(retailer,'location-aware comparison',async()=>{
+      const result=await call('compare',{...args,query:sku,includeGenerics:false,zipcode:origins[1]});
+      assert.equal(result.stockEvidence,'fulfillment_quote');
+      assert.ok(result.products.length && result.products.every(x=>x.sku===sku && x.branchQuantity===null && x.localStatus!=='lookup_failed'));
+      return result.products.map(p=>p.localStatus);
+    });
+    await check(retailer,'single-call selected basket',async()=>{
+      const response=await client.callTool({name:'plan_purchase',arguments:{retailer,items:[{query:sku,selectedSku:sku},{query:branded[retailer],selectedSku:branded[retailer]}],origin:{zipcode:origins[0]}}});
+      const d=response.structuredContent;
+      assert.equal(d.retailerId,retailer);
+      assert.equal(d.planningScope,'whole_basket_fulfillment');
+      assert.deepEqual(d.items.map(q=>q.sku),[sku,branded[retailer]]);
+      return d.status;
     });
     await check(retailer,'compare local SKU across active catalogs',async()=>{
       const d=await call('prices',{...args,query:sku,zipcode:origins[1]});

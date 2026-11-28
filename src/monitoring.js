@@ -7,7 +7,7 @@ const chains = new Map([
   ['Drogasil', 'drogasil'], ['Pague Menos', 'paguemenos'],
   ['Drogaria São Paulo', 'drogariasaopaulo'],
 ]);
-const operations = new Set(['retailers', 'search', 'suggest', 'product', 'info', 'stores', 'compare', 'basket', 'snapshot', 'read_snapshot', 'stock', 'prices', 'get_medication_info',
+const operations = new Set(['retailers', 'search', 'suggest', 'product', 'info', 'stores', 'compare', 'basket', 'baskets', 'snapshot', 'read_snapshot', 'stock', 'prices', 'get_medication_info',
   'plan_purchase', 'search_products', 'get_products', 'find_nearby_stock', 'compare_products',
   'compare_pharmacy_prices', 'collect_catalog_snapshot', 'read_catalog_snapshot', 'service', 'presentation_canary']);
 const failures = new Set(['upstream_failure', 'lookup_miss', 'stock_unknown', 'catalog_incomplete', 'service_exit', 'handler_exception', 'timeout', 'canary_mismatch']);
@@ -16,7 +16,7 @@ const sourceProblems = new Set(['failed', 'source_failed', 'catalog_lookup_faile
   'generic_lookup_failed', 'reference_lookup_failed', 'lookup_failed']);
 const incomplete = new Set(['incomplete_presentation', 'no_prices', 'unconfirmed_gtin', 'missing_gtin', 'presentation_unconfirmed', 'quantity_unverified']);
 const clarifications = new Set(['ambiguous', 'choose_reference', 'presentation_options', 'conflicting_release',
-  'needs_generic_preference', 'requires_cep']);
+  'needs_generic_preference', 'needs_name_confirmation', 'requires_cep']);
 const uuid = () => randomUUID().replaceAll('-', '');
 
 function retailerId(value) {
@@ -68,8 +68,16 @@ export function observations(operation, args, result) {
   const add = (row, query, retailer = base) => rows.push({ operation, retailer, shape: queryShape(query), outcome: outcome(row) });
   if (operation === 'get_products' && Array.isArray(result.products)) {
     for (const product of result.products) add({ status: product ? 'matches' : 'unknown_sku' }, '1');
+  } else if (operation === 'snapshot' && Array.isArray(result.runs)) {
+    for (const run of result.runs) add(run, undefined, retailerId(run.retailerId));
   } else if (result.tables?.length) {
     result.tables.forEach((row, i) => add(row, args.items?.[i]?.query));
+  } else if (result.scope === 'whole_basket_per_retailer') {
+    for (const row of result.results) {
+      const id = retailerId(row.retailerId);
+      if (row.tables?.length) row.tables.forEach((table, i) => add(table, args.items?.[i]?.query, id));
+      else add(row, undefined, id);
+    }
   } else if (result.checkedRetailers?.length) {
     for (const row of result.checkedRetailers) {
       const issue = result.issues?.find(issue => issue.retailer === row.retailer && sourceProblems.has(issue.status));

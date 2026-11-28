@@ -1,9 +1,9 @@
-import { isDcbName } from 'drogasil-cli/medication-catalog';
+import { searchCatalogPage } from 'drogasil-cli/catalog-search';
+import { isDcbName, medicationIntent } from 'drogasil-cli/medication-catalog';
 import {
   getProductsBySku, listStores, productInfo, resolveMedication, searchProducts, searchStockWindows, stockQuantity,
 } from 'drogasil-cli';
-import { createRetailer } from 'paguemenos-cli/vtex';
-import { retailer as pagueMenos } from 'paguemenos-cli';
+import { retailer as pagueMenos, searchVerifiedCatalog } from 'paguemenos-cli';
 import { retailer as saoPaulo } from 'drogariasaopaulo-cli';
 
 function catalogRow(hit) {
@@ -11,7 +11,7 @@ function catalogRow(hit) {
   const validLink = hit.url && new URL(hit.url, 'https://www.drogasil.com.br');
   return {
     retailer: 'Drogasil', sku: String(hit.sku), gtin: hit.eanCode ? String(hit.eanCode) : null,
-    name: hit.name, brand: hit.brand, type: info.type, facts: hit.details ?? {},
+    name: hit.name, brand: hit.brand, type: info.type, pack: info.pack, facts: hit.details ?? {},
     productUrl: validLink?.origin === 'https://www.drogasil.com.br' ? validLink.href : null,
     currentPrice: info.referencePriceBRL ?? null, listPrice: null, currency: 'BRL', inStock: null,
     priceScope: 'catalog_reference', observedAt: new Date().toISOString(),
@@ -23,6 +23,19 @@ const drogasil = {
   stores: listStores,
   async search(query, page, limit) {
     return (await searchProducts(query, { page: page - 1, hitsPerPage: limit })).hits.map(catalogRow);
+  },
+  async suggest(query, limit) {
+    return (await medicationIntent(query)).suggestions.slice(0, limit);
+  },
+  async searchCatalog(query, page, limit) {
+    return (await this.searchCatalogPage(query, page, limit)).products;
+  },
+  async searchCatalogPage(query, page, limit) {
+    const result = await searchCatalogPage(query, {page:page - 1, hitsPerPage:limit});
+    const products = result.hits.map(hit => ({
+      ...catalogRow(hit), activeIngredients:hit.activeIngredients, ingredientEvidence:hit.ingredientEvidence,
+    }));
+    return {products, pages:result.nbPages};
   },
   async byGtin(gtin) {
     const {hits} = await searchProducts(gtin,{hitsPerPage:100});
@@ -48,8 +61,10 @@ const nameKey = term => term.normalize('NFD').replace(/\p{M}/gu, '').trim().toLo
 
 // Drug identity may corroborate a spelling. Only the target retailer can
 // corroborate a presentation, SKU, price or stock.
-export function withMedicationNames(source, resolve = resolveMedication) {
-  return { ...source, async suggest(query, limit = 7) {
+export function withMedicationNames(source, resolve = resolveMedication, intentFor = medicationIntent) {
+  return { ...source, async searchCatalog(query, page, limit) {
+    return searchVerifiedCatalog(source, query, page, limit, intentFor);
+  }, async suggest(query, limit = 7) {
     const [terms, name] = await Promise.all([
       source.suggest(query, Math.max(limit, 7)),
       resolve(query).catch(() => null),
@@ -77,7 +92,5 @@ export function withMedicationNames(source, resolve = resolveMedication) {
   } };
 }
 
-export const providers = { drogasil, paguemenos: withMedicationNames(pagueMenos), drogariasaopaulo: {
-    ...saoPaulo, basket:createRetailer({name:saoPaulo.name,site:saoPaulo.site}).basket,
-  } };
+export const providers = { drogasil, paguemenos: withMedicationNames(pagueMenos), drogariasaopaulo: saoPaulo };
 export const retailPartners = [pagueMenos, saoPaulo];

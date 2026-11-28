@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { catalogInfo, medicationCard } from '../src/catalog-workflows.js';
+import { catalogInfo, medicationCard } from 'drogasil-cli/retailer-workflows';
 import { getProduct, schemas } from '../src/index.js';
-import { retailerBasket, retailerComparison } from '../src/retailer-shopping.js';
+import { retailerBasket, retailerComparison } from 'drogasil-cli/retailer-workflows';
 
 test('bulk preserves missing, failed and repeated SKUs and barcode lookups validate returned identifiers', async()=>{
   const calls=[];
@@ -66,7 +66,7 @@ test('only jointly quoted items and identical pickup IDs yield a complete basket
 });
 
 test('a partner snapshot saves all sellers per SKU, deduplicates overlapping queries and preserves a partial failed run',async t=>{
-  const {catalogSnapshot}=await import('../src/catalog-workflows.js');
+  const {catalogSnapshot}=await import('drogasil-cli/retailer-workflows');
   const {mkdtemp,rm}=await import('node:fs/promises');
   const {join}=await import('node:path');
   const {tmpdir}=await import('node:os');
@@ -86,4 +86,31 @@ test('a partner snapshot saves all sellers per SKU, deduplicates overlapping que
   assert.equal(d.state,'failed');assert.equal(d.count,1);
   assert.equal(d.records[0].searchQuery,'first');
   assert.deepEqual(d.records[0].offers.map(o=>o.seller),['seller1','seller2']);
+});
+
+test('snapshot starts only the selected chains and keeps successful run identifiers after a partial failure', async () => {
+  const {startSnapshots} = await import('../src/snapshot-scopes.js');
+  const ids = ['drogasil','paguemenos','drogariasaopaulo'];
+  const sources = Object.fromEntries(ids.map(id => [id,{name:id}]));
+  for (let mask = 1; mask < 8; mask++) {
+    const selected = ids.filter((_, i) => mask & (1 << i)).reverse();
+    const calls = [];
+    const args = schemas.snapshot.parse({retailers:selected,queries:['shampoo'],maxItems:2});
+    const result = await startSnapshots(args, sources, async (input, source) => {
+      calls.push(source.name);
+      assert.deepEqual(input,{retailer:source.name,queries:['shampoo'],maxItems:2});
+      if (source.name === 'paguemenos') throw Error('failed to start');
+      return {runId:source.name,state:'running'};
+    });
+    assert.deepEqual(calls, selected);
+    assert.deepEqual(result.runs.map(r=>r.retailerId), selected);
+    for (const run of result.runs) {
+      if (run.retailerId === 'paguemenos') assert.deepEqual(run,{retailerId:'paguemenos',state:'failed',error:'snapshot_start_failed'});
+      else assert.equal(run.runId,run.retailerId);
+    }
+  }
+  for (const selection of [{},{retailers:[]},{retailers:['drogasil','drogasil']},{retailer:'drogasil',retailers:ids}]) {
+    assert.equal(schemas.snapshot.safeParse({...selection,queries:['shampoo']}).success,false);
+  }
+  assert.deepEqual(await startSnapshots({retailer:ids[0],queries:['shampoo']},sources,async()=>({runId:'one'})),{runId:'one'});
 });
