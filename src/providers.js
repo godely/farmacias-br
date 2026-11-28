@@ -44,15 +44,16 @@ const drogasil = {
   async product(sku) {
     return (await getProductsBySku([sku])).filter(Boolean).map(catalogRow);
   },
-  async local(row, location, quantity) {
-    const { windows, coverage } = await searchStockWindows(new Map([[row.sku, quantity]]), typeof location === 'string' ? { zipcode: location } : location);
+  async local(row, location, quantity, options = {}) {
+    const { windows, coverage, expandedSearch } = await searchStockWindows(new Map([[row.sku, quantity]]), typeof location === 'string' ? { zipcode: location } : location, options);
     const branches = windows.get(row.sku).rows.map(item => ({
       id: String(item.branch.id), name: item.branch.businessName, address: item.branch.address,
       distanceKm: item.branch.distanceKMFromSearch, quantity: stockQuantity(item, row.sku),
     }));
     const enough = branches.some(branch => branch.quantity !== null && branch.quantity >= quantity);
     const known = branches.length > 0 && branches.every(branch => branch.quantity !== null);
-    return { ...row, branches, coverage, requestedQuantity: quantity,
+    const shown = expandedSearch && !options.includeAll ? branches.filter(b => b.quantity >= quantity).slice(0,10) : branches;
+    return { ...row, branches:shown, coverage, ...(expandedSearch && {expandedSearch}), requestedQuantity: quantity,
       localStatus: enough ? 'available' : known ? 'insufficient_stock' : 'unverified' };
   },
 };

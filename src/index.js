@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { validGtin } from 'paguemenos-cli/vtex';
+import { inventoryConfig, lookupBranchStock } from 'paguemenos-cli/branch-inventory';
 import { compareOffers } from 'paguemenos-cli/compare';
 import {planSelectedBaskets, purchaseSchema} from './named-baskets.js';
 import { compareBaskets } from './baskets.js';
@@ -35,7 +36,8 @@ export const schemas = {
     args => [args.sku,args.skus,args.gtin].filter(Boolean).length === 1, 'Informe SKU, SKUs ou GTIN'),
   stores: z.strictObject({retailer, ...location,
     page:z.number().int().positive().default(1), limit:z.number().int().min(1).max(100).default(20)}),
-  compare: z.strictObject({retailer:partner, query, includeGenerics:z.boolean(), store:z.union([z.literal('nearest'),sku]).optional(), ...location})
+  compare: z.strictObject({retailer:partner, query, includeGenerics:z.boolean(), store:z.union([z.literal('nearest'),sku]).optional(), expandSearch:z.boolean().optional(), ...location})
+    .refine(v=>!v.expandSearch || (!v.store && Boolean(v.zipcode || v.coordinates)), 'Ampliar exige localização e busca entre lojas')
     .refine(v=>!v.store || Boolean(v.zipcode || v.coordinates),'Informe a localização para escolher a filial')
     .refine(v=>!(v.zipcode && v.coordinates),'Informe apenas uma origem'),
   basket: z.strictObject({retailer:partner, zipcode, items:z.array(z.strictObject({sku,
@@ -48,7 +50,11 @@ export const schemas = {
     queries:z.array(query).min(1).max(10), maxItems:z.number().int().min(1).max(1000).default(20)})
     .refine(args => Boolean(args.retailer) !== Boolean(args.retailers), 'Selecione as redes para a coleta'),
   read_snapshot: z.strictObject({runId:z.string().uuid(), offset:z.number().int().min(0).default(0), limit:z.number().int().min(1).max(1000).default(20)}),
-  stock: withLocation({ retailer, sku, quantity: z.number().int().min(1).max(1000).default(1) }),
+  stock: withLocation({ retailer, sku, quantity: z.number().int().min(1).max(1000).optional(),
+    includeAll:z.boolean().optional(), expandSearch:z.boolean().optional(), maxBranches:z.number().int().min(3).max(30).optional() })
+    .refine(v=>!(v.zipcode && v.coordinates),'Informe apenas uma origem')
+    .refine(v=>!v.maxBranches || !!v.zipcode,'O limite de filiais exige CEP')
+    .refine(v=>!(v.includeAll && v.quantity != null),'Escolha entre todas as lojas e uma quantidade mínima'),
   prices: withLocation({ query, retailer: retailer.optional().describe('Retailer owning the numeric SKU in query'),
     includeGenerics: z.boolean().default(false), retailers: selection.optional() }),
 };
@@ -56,13 +62,20 @@ const stockEvidence = { drogasil: 'branch_quantity', paguemenos: 'fulfillment_qu
   drogariasaopaulo: 'fulfillment_quote' };
 
 export function listRetailers() {
-  return retailerIds.map(id => ({ id, retailer: providers[id].name, stockEvidence: stockEvidence[id],
+  return retailerIds.map(id => {
+    let source = 'not_configured';
+    try { if (inventoryConfig(id)) source = 'snapshot_configured'; }
+    catch { source = 'configuration_failed'; }
+    const configured = source === 'snapshot_configured';
+    return { id, retailer: providers[id].name, stockEvidence: stockEvidence[id],
     capabilities:{batchSku:true, exactGtin:true, medicationInfo:'catalog', catalogSnapshots:true,
       stockOrigin:['cep','coordinates'], directoryScope:providers[id].directoryScope??'national',
-      storeDirectory:typeof providers[id].stores === 'function', nearestBranch:true, fixedBranchEvidence:stockEvidence[id], exactBranchQuantity:id === 'drogasil',
+      storeDirectory:typeof providers[id].stores === 'function', nearestBranch:true, fixedBranchEvidence:stockEvidence[id], exactBranchQuantity:id === 'drogasil' || configured,
+      branchInventorySource:id === 'drogasil' ? 'live' : source,
       namedBasket:true, locationAwareComparison:true, purchasePlan:true, planningEvidence:id === 'drogasil' ? 'reported_branch_stock' : 'confirmed_pickup_points', equivalentPresentations:id === 'drogasil' ? 'native' : 'verified_barcode_bridge',
       basket:id === 'drogasil' ? 'branch_plan' : 'joint_fulfillment_quote'},
-    priceEvidence: stockEvidence[id] === 'fulfillment_quote' ? 'cep_quote_if_fulfillable' : 'online_or_reference' }));
+    priceEvidence: stockEvidence[id] === 'fulfillment_quote' ? 'cep_quote_if_fulfillable' : 'online_or_reference' };
+  });
 }
 
 function labeled(row, id) {
@@ -169,7 +182,7 @@ export async function getProduct(args, sources = providers) {
 }
 
 export async function getStock(args, sources = providers) {
-  const { retailer, sku, zipcode, coordinates, quantity } = schemas.stock.parse(args);
+  const { retailer, sku, zipcode, coordinates, quantity = 1, includeAll, expandSearch, maxBranches } = schemas.stock.parse(args);
   const source = sources[retailer];
   const evidence = stockEvidence[retailer];
   let rows;
@@ -185,10 +198,28 @@ export async function getStock(args, sources = providers) {
   const offers = [];
   let failures = 0;
   for (const row of rows) {
-    try { offers.push(summary(await source.local(row, coordinates ?? zipcode, quantity), retailer)); }
+    try { offers.push(summary(await source.local(row, coordinates ?? zipcode, quantity, {includeAll,expandSearch,maxBranches}), retailer)); }
     catch { failures++; offers.push({ ...summary(row, retailer), localStatus: 'lookup_failed' }); }
   }
-  return { retailerId: retailer, evidence, status: failures === rows.length ? 'source_failed' : failures ? 'partial' : 'checked', offers };
+  let config;
+  let branchInventory;
+  try { config = inventoryConfig(retailer); }
+  catch { branchInventory = {status:'source_failed', evidence:'branch_inventory_configuration_failed', stores:[]}; }
+  const physicalRequested = includeAll || expandSearch || maxBranches != null;
+  if (config) {
+    const canCheckWider = !failures && !offers.some(row => row.methods?.some(m =>
+      row.localStatus === 'available' && m.channel === 'pickup-in-point' && m.pickupPointId));
+    try {
+      branchInventory = await lookupBranchStock(retailer, source, coordinates ?? zipcode, sku, config,
+        {minimum:quantity, includeAll, maxBranches, expand:canCheckWider && expandSearch});
+      if (!canCheckWider) branchInventory.coverage.canExpand = false;
+    } catch {
+      branchInventory = {status:'source_failed', evidence:'branch_inventory_lookup_failed', stores:[]};
+    }
+  } else if (!branchInventory && physicalRequested && retailer !== 'drogasil') {
+    branchInventory = {status:'unknown', evidence:'no_branch_inventory_source', stores:[]};
+  }
+  return { retailerId: retailer, evidence, status: failures === rows.length ? 'source_failed' : failures ? 'partial' : 'checked', offers, ...(branchInventory && {branchInventory}) };
 }
 
 export async function comparePrices(args, { compare = compareRetailPrices, sources = providers } = {}) {

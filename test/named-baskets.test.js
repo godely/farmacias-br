@@ -33,6 +33,26 @@ test('a zero-stock chain cannot trigger wider searches when another chain offers
   assert.deepEqual(single.coverage,zero);
 });
 
+test('confirmed zeros across two directories expand only the chain that has farther branches', async () => {
+  const retailers = ['paguemenos','drogariasaopaulo'];
+  const calls = [];
+  const plan = async (id, lines, opts) => {
+    calls.push([id, Boolean(opts.expandSearch)]);
+    return {status:'unfilled', coverage:{allZero:true, stockUnknown:false, checkedStores:3,
+      radiusKm:id === 'paguemenos' ? 4 : 3, canExpand:id === 'paguemenos' && !opts.expandSearch}};
+  };
+  const args = {retailers, origin, items:[items[0]]};
+  const initial = await planSelectedBaskets(args,{plan,clarify:async()=>[]});
+  assert.equal(initial.coverage.checkedStores,6);
+  assert.equal(initial.coverage.radiusKm,3);
+  assert.equal(initial.coverage.canExpand,true);
+  assert.deepEqual(calls,retailers.map(id=>[id,false]));
+  calls.length = 0;
+  const wider = await planSelectedBaskets({...args,expandSearch:true},{plan,clarify:async()=>[]});
+  assert.deepEqual(calls,[['paguemenos',false],['drogariasaopaulo',false],['paguemenos',true]]);
+  assert.equal(wider.coverage.canExpand,false);
+});
+
 for(let mask=1;mask<8;mask++) {
   const retailers=chains.filter((_,i)=>mask&(1<<i));
   test('a single named basket preserves the selected chains and each full order: '+retailers.join(', '),async()=>{

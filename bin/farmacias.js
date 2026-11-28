@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
-import {planArgs, planUsage} from './plan-args.js';
+import {coordinateArgs, planArgs, planUsage} from './plan-args.js';
 import { request } from '../src/index.js';
 import { runSnapshotCommand } from 'drogasil-cli/retailer-workflows';
 
@@ -13,14 +13,14 @@ const usage = `Farmácias BR
   farmacias product --gtin EAN --retailer ID
   farmacias product <SKU> <SKU> --retailer ID
   farmacias stores --retailer ID [--cep CEP | --lat LAT --lon LON] [--page N --limit N]
-  farmacias compare <nome ou SKU> --retailer ID [--generics] [--cep CEP | --lat LAT --lon LON] [--store nearest|ID]
+  farmacias compare <nome ou SKU> --retailer ID [--generics] [--cep CEP | --lat LAT --lon LON] [--store nearest|ID | --expand]
   farmacias baskets GTIN[:quantidade]... --retailers ID,ID --cep CEP
   farmacias basket SKU[:quantidade[:vendedor]]... --retailer ID --cep CEP
   farmacias info <nome ou SKU>... --retailer ID [--brazil]
   farmacias snapshot <consulta>... (--retailer ID | --retailers ID,ID) [--max-items N]
   farmacias read_snapshot <run-id> [--offset N --limit N]
   farmacias export_snapshot <run-id> [--format json|csv|xlsx]
-  farmacias stock <SKU> --retailer ID (--cep CEP | --lat LAT --lon LON) [--quantity N]
+  farmacias stock <SKU> --retailer ID (--cep CEP | --lat LAT --lon LON) [--quantity N | --all] [--max-branches N] [--expand]
   farmacias prices <nome, SKU ou GTIN> --cep CEP [--retailer ID_DO_SKU] [--retailers ID,ID] [--generics]
   Resultados em JSON. Os identificadores de loja estão em farmacias retailers.`;
 try {
@@ -32,9 +32,9 @@ try {
 } catch (err) { console.error(err.message); process.exitCode = 1; }
 
 async function runOther() {
-  const { positionals: [operation, ...terms], values } = parseArgs({ allowPositionals: true, options: {
+  const { positionals: [operation, ...terms], values } = parseArgs({ args:coordinateArgs(process.argv.slice(2)), allowPositionals: true, options: {
     lat: { type: 'string' }, lon: { type: 'string' }, help: { type: 'boolean', short: 'h' }, retailer: { type: 'string', multiple:true }, retailers:{type:'string'}, brazil:{type:'boolean'}, cep: { type: 'string' },
-    store:{type:'string'}, gtin: {type:'string'}, 'max-items':{type:'string'}, offset:{type:'string'}, format:{type:'string'},
+    expand:{type:'boolean'}, all:{type:'boolean'}, 'max-branches':{type:'string'}, store:{type:'string'}, gtin: {type:'string'}, 'max-items':{type:'string'}, offset:{type:'string'}, format:{type:'string'},
     page: { type: 'string' }, limit: { type: 'string' }, quantity: { type: 'string' },
     generics: { type: 'boolean' }, json: { type: 'boolean' },
   } });
@@ -73,6 +73,9 @@ async function runOther() {
       args.coordinates = { latitude: values.lat?.trim() ? Number(values.lat) : NaN,
         longitude: values.lon?.trim() ? Number(values.lon) : NaN };
     }
+    if (values.expand) args.expandSearch = true;
+    if (values.all) args.includeAll = true;
+    if (values['max-branches'] !== undefined) args.maxBranches = Number(values['max-branches']);
     if (values.cep !== undefined) args.zipcode = values.cep;
     if (operation === 'compare') args.includeGenerics=values.generics??false;
     if (values.generics !== undefined) args.includeGenerics = values.generics;
