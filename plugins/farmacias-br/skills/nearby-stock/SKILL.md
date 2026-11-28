@@ -3,7 +3,7 @@ name: nearby-stock
 description: Handle Drogasil medication availability and shopping baskets. Ask about generics for named brands before any lookup, then plan all pickups together.
 ---
 
-Quando houver `comparisonOptions`, mostre cada oferta pelo próprio nome, preço e retirada. A caixa de marca continua pendente. Um genérico com a mesma apresentação pode ser cotado separadamente. A Anvisa orienta que ele não substitui diretamente um similar prescrito. Cite a orientação em `registeredPresentation.guidanceUrl`. Para filial fixa, respeite `pickupAtStore` de cada oferta.
+Quando houver `comparisonOptions`, mostre cada oferta pelo próprio nome, preço e retirada. Com a marca encontrada, mostre-a primeiro com a própria cotação. Com a marca ausente, registre essa pendência na cesta. Um genérico com a mesma apresentação pode ser cotado separadamente. A Anvisa orienta que ele não substitui diretamente um similar prescrito. Cite a orientação em `registeredPresentation.guidanceUrl`. Para filial fixa, respeite `pickupAtStore` de cada oferta.
 
 Quando a compra trouxer `catalogMisses`, identifique a apresentação pedida e a rede em que ela ficou sem correspondência confirmada. O estoque dessa apresentação ficou sem verificação. Se a pessoa pediu 30 mL, mantenha os 30 mL na resposta. Só pesquise ou cite o preço de outro volume se ela pedir. Continue com os demais itens e redes que tiveram resultados.
 

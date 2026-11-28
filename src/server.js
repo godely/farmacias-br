@@ -229,9 +229,10 @@ export function shoppingReply(response) {
     (completePlan ? 'Mostre primeiro o plano completo confirmado. Ofereça esclarecer a apresentação na outra rede se a pessoa quiser compará-la.' :
       'Após a escolha, consulte o nome com a apresentação escolhida na mesma rede, preservando os demais itens, preferências, quantidades, filial e origem.');
   const compared = outcomes.flatMap(row => (row.tables ?? [row]).filter(t => t.comparisonOptions?.length)
-    .map(t => [retailerNames[row.retailerId],t.requestedBrand?.name].filter(Boolean).join(' · ')));
+    .map(t => [retailerNames[row.retailerId],t.requestedBrand?.name,
+      t.requestedBrand?.status==='listed' ? 'marca encontrada' : 'caixa da marca não encontrada'].filter(Boolean).join(' · ')));
   if (compared.length) guidance.registeredComparisonGuidance = compared.join('. ') +
-    ' — a caixa da marca não foi encontrada nessa rede. Mostre os genéricos em comparisonOptions pelo próprio nome, com preço e retirada confirmados para cada oferta. A quantidade solicitada para retirada não informa o estoque físico. ' +
+    ' — mostre primeiro a marca encontrada e sua disponibilidade. Mostre os genéricos em comparisonOptions pelo próprio nome, com preço e retirada confirmados para cada oferta. A quantidade solicitada para retirada não informa o estoque físico. ' +
     'Segundo a Anvisa, um similar prescrito não pode ser trocado diretamente por um genérico. Cite registeredPresentation.guidanceUrl. Essas ofertas servem para comparação e ficam fora do plano da marca.';
   const unverified = outcomes.flatMap(row => unverifiedEquivalents(row).map(table =>
     [retailerNames[row.retailerId], table.query ?? table.requestedBrand.name].filter(Boolean).join(' · ')));
