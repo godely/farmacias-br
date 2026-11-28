@@ -106,6 +106,8 @@ O teste de aceitação chama o MCP por stdio contra os catálogos reais, exercit
 
 Para verificar também os executáveis dos dois pacotes parceiros publicados no GitHub, execute `node scripts/check-sibling-clis.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"`. O teste cobre os oito comandos de referência, sugestões, código de barras, comparações locais, cestas, diretórios e exportação dos snapshots em JSON, CSV e XLSX.
 
+Para conferir a confirmação de nomes nos três executáveis e verificar o princípio ativo após a escolha, execute `node scripts/check-standalone-names.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"`.
+
 Use `farmacias prices GTIN --cep CEP --retailers paguemenos,drogariasaopaulo` para restringir as ofertas às redes escolhidas. A opção `--retailer` em preços identifica o dono de um SKU local. Para uma cesta inteira use `farmacias baskets GTIN:2 OUTRO_GTIN:1 --cep CEP --retailers paguemenos,drogariasaopaulo`. As mesmas consultas estão disponíveis como `pharmacy_prices` e `pharmacy_baskets`.
 
 Para comparar as mesmas embalagens nas sete combinações de redes pelo CLI e pelo MCP, execute `node scripts/check-selected-retailers.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"`. A comparação local de apresentações aceita uma origem opcional em `pharmacy_compare`. Para cestas por nome, `plan_purchase` aceita o identificador da rede em `retailer`. A consulta conjunta da Pague Menos e da Drogaria São Paulo confirma quantidades para retirada ou entrega. O estoque físico por filial permanece desconhecido.
