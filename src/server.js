@@ -80,6 +80,35 @@ export function toolReply(name, args, value) {
   return {content, structuredContent};
 }
 
+const currency = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+const retailerNames = {drogasil:'Drogasil',paguemenos:'Pague Menos',drogariasaopaulo:'Drogaria São Paulo'};
+
+function itineraryText(result) {
+  if (!result?.plans?.length) return null;
+  const text = ['Cesta completa. Cada filial visitada conta como uma parada. Use a ordem abaixo.'];
+  for (const p of result.plans) {
+    const cost = Number.isFinite(p.totalBRL) ? currency.format(p.totalBRL) : 'total a confirmar';
+    const km = Number.isFinite(p.roundTripKm) ? p.roundTripKm.toLocaleString('pt-BR',{maximumFractionDigits:2}) +
+      ' km de ida e volta em linha reta' : 'distância total a confirmar';
+    const title = {both:'Menos lojas e menor preço estimado',fewest_stores:'Menos lojas',lowest_price:'Menor preço estimado'}[p.objective];
+    text.push(title + ' entre os planos verificados. ' + p.stopCount + ' lojas, ' + cost + ', ' + km + '.');
+    for (const [i,stop] of p.stops.entries()) {
+      const a=stop.address ?? {};
+      const address=[a.street ?? a.addressLocal,a.number ?? a.addressNumber].filter(Boolean).join(', ');
+      text.push((i+1) + '. ' + retailerNames[stop.retailerId] + ' — ' + (address || stop.name));
+      for (const pick of stop.pickups) {
+        const price = Number.isFinite(pick.unitPriceBRL) ? currency.format(pick.unitPriceBRL) : 'preço a confirmar';
+        const evidence = pick.evidence === 'quoted_pickup' ? 'retirada oferecida para a quantidade pedida' :
+          pick.reportedStock + ' em estoque na filial, preço de referência';
+        text.push('   ' + pick.packs + ' × ' + pick.name + ' · ' + price + ' · ' + evidence + '.');
+      }
+    }
+  }
+  if (result.comparison) text.push('Economia de ' + currency.format(result.comparison.savingsBRL) +
+    ' com ' + result.comparison.extraStops + ' parada(s) a mais.');
+  return text.join('\n');
+}
+
 export function shoppingReply(response) {
   const data = response.structuredContent;
   if (!data) return response;
@@ -90,7 +119,8 @@ export function shoppingReply(response) {
   if (data.checkedRetailers && data.scope === 'whole_basket_per_retailer') {
     guidance.retailerGuidance = 'Responda pelas redes consultadas. Se outra rede tiver retirada, estoque ou resultado pendente, uma busca sem estoque na Drogasil sozinha não justifica ampliar o raio.';
   }
-  const notes = Object.values(guidance);
+  const itinerary = itineraryText(data.crossRetailerPlans);
+  const notes = [itinerary,...Object.values(guidance)].filter(Boolean);
   if (!notes.length) return response;
   const structuredContent = { ...data, ...guidance };
   return { ...response, structuredContent, content: [
