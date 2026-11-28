@@ -69,3 +69,12 @@ test('ambiguous packs, unknown stock, confirmed zero and outages stay distinct f
   assert.equal(result.catalogMisses[0].name,'Item 1');
   assert.doesNotMatch(reply.content[0].text,/7891234567895/);
 });
+
+test('registered presentation comparisons show independently quoted generics outside the basket',()=>{
+  const table={query:'Marca',registeredPresentation:{category:'Similar'},comparisonOptions:[{name:'Genérico'}],
+    requestedBrand:{name:'Marca',status:'no_exact_catalog_match'},status:'presentation_comparison'};
+  const result=shoppingReply({structuredContent:{retailerId:'paguemenos',tables:[table]}}).structuredContent;
+  assert.equal(result.nextAction,'show_presentation_comparisons');
+  assert.match(result.registeredComparisonGuidance,/similar prescrito/);
+  assert.doesNotMatch(result.registeredComparisonGuidance,/sem estoque/);
+});

@@ -228,6 +228,11 @@ export function shoppingReply(response) {
     referenceChoices.join('. ') + '. Nesta etapa, a disponibilidade dessas apresentações na rede indicada está em aberto. ' +
     (completePlan ? 'Mostre primeiro o plano completo confirmado. Ofereça esclarecer a apresentação na outra rede se a pessoa quiser compará-la.' :
       'Após a escolha, consulte o nome com a apresentação escolhida na mesma rede, preservando os demais itens, preferências, quantidades, filial e origem.');
+  const compared = outcomes.flatMap(row => (row.tables ?? [row]).filter(t => t.comparisonOptions?.length)
+    .map(t => [retailerNames[row.retailerId],t.requestedBrand?.name].filter(Boolean).join(' · ')));
+  if (compared.length) guidance.registeredComparisonGuidance = compared.join('. ') +
+    ' — a caixa da marca não foi encontrada nessa rede. Mostre os genéricos em comparisonOptions pelo próprio nome, com preço e retirada confirmados para cada oferta. A quantidade solicitada para retirada não informa o estoque físico. ' +
+    'Segundo a Anvisa, um similar prescrito não pode ser trocado diretamente por um genérico. Cite registeredPresentation.guidanceUrl. Essas ofertas servem para comparação e ficam fora do plano da marca.';
   const unverified = outcomes.flatMap(row => unverifiedEquivalents(row).map(table =>
     [retailerNames[row.retailerId], table.query ?? table.requestedBrand.name].filter(Boolean).join(' · ')));
   if (unverified.length) guidance.equivalenceGuidance = unverified.join('. ') +
@@ -249,6 +254,7 @@ export function shoppingReply(response) {
     guidance.itineraryGuidance = 'Informe a filial e o endereço por item e o subtotal estimado. Quando houver uma comparação calculada, explique a economia, a mudança de paradas e a diferença de percurso em linha reta. Em uma cesta parcial, indique o que ficou pendente por rede. A consulta está concluída. Preserve os avisos de cobertura parcial.';
   }
   if (onlyCatalogMisses && !itinerary && !data.nextAction) guidance.nextAction = 'answer_with_catalog_miss';
+  if (compared.length && !itinerary && !data.nextAction) guidance.nextAction = 'show_presentation_comparisons';
   if (awaitingPack && !completePlan) guidance.nextAction = 'clarify_presentation';
   const notes = [itinerary,...Object.entries(guidance).filter(([key]) => key !== 'nextAction').map(([,text]) => text)].filter(Boolean);
   if (!notes.length) return response;
@@ -313,7 +319,7 @@ export function createServer(monitor = null) {
       const value = await request(name, args);
       const response = toolReply(name,args,value);
       const referenceEvidence = name === 'compare' && (value.results ?? [value]).some(row =>
-        referenceChoiceTables(row).length || unverifiedEquivalents(row).length);
+        referenceChoiceTables(row).length || unverifiedEquivalents(row).length || (row.tables ?? [row]).some(t=>t.registeredPresentation));
       return referenceEvidence || value.expandedSearch || value.purchase?.expandedSearch ? shoppingReply(response) : response;
     });
   }
