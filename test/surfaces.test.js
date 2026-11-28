@@ -313,3 +313,22 @@ test('a pickup offer leaves reservation and readiness unconfirmed, including at 
     assert.equal(response.structuredContent.orderEvidence, undefined);
   }
 });
+
+test('a single verified pack gets one nearest pickup in the default answer, retaining other branches for explicit requests', () => {
+  const point={channel:'pickup-in-point',pickupPointId:'a',branch:'Loja A',distanceKm:0.45,address:{street:'Rua Azul',number:'1'}};
+  const far={...point,pickupPointId:'b',branch:'Loja B',distanceKm:2};
+  const product={name:'Paracetamol 750 mg 10 comprimidos',type:'Genérico',manufacturer:'Medquímica',
+    currentPrice:12.49,localStatus:'available',requestedQuantity:1,branchQuantity:null,
+    closestQuotedPickup:point,methods:[far,point]};
+  const data={planningScope:'one_pack_alternatives',products:[product]};
+  const render = data => shoppingReply({structuredContent:data,content:[]}).structuredContent;
+  const reply=render(data);
+  assert.match(reply.suggestedPickupReply,/uma caixa.*Medquímica.*Loja A.*Rua Azul, 1.*0,45 km/);
+  assert.doesNotMatch(reply.suggestedPickupReply,/Loja B/);
+  assert.equal(reply.products[0].methods.length,2);
+  for (const extra of [{localStatus:'unverified'},{closestQuotedPickup:null},{branchQuantity:4}]) {
+    assert.equal(render({...data,products:[{...product,...extra}]}).suggestedPickupReply,undefined);
+  }
+  assert.equal(render({...data,storeScope:'fixed_branch'}).suggestedPickupReply,undefined);
+  assert.equal(render({...data,quoteStatus:'partial'}).suggestedPickupReply,undefined);
+});

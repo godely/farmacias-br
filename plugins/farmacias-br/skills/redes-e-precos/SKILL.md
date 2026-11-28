@@ -53,6 +53,8 @@ Se a pessoa pedir a coleta padrão, omita `queries`. O padrão pesquisa paraceta
 
 Confira o tamanho da caixa no nome do produto e na quantidade publicada na ficha. Nas coletas, use também `offers[].packageQuantities` quando disponível. Um endereço de página pode conservar o nome de uma embalagem antiga. Se a ficha e o título concordarem, use essa quantidade. Se divergirem entre si, diga “embalagem a confirmar” e peça a apresentação antes de comparar preços.
 
+Para “tem esse remédio?”, informe uma filial por apresentação, a mais próxima que confirmou a quantidade solicitada ou ofereceu a retirada. Quando houver uma única caixa correspondente, use uma frase com o medicamento, fabricante solicitado, tipo, preço, loja e distância disponível. Use `suggestedPickupReply` quando presente. Passe as demais filiais ou opções de entrega quando a pessoa as pedir. Se o fabricante solicitado faltar, diga o que encontrou para aquela caixa e aguarde a pessoa escolher outra opção.
+
 Em perguntas sobre concentração, forma ou embalagem, responda aos dados pedidos e cite a ficha. Se perguntarem pelo receituário controlado, cite o campo `prescription.rule` que fundamenta `prescription.form`. Um código da loja não comprova a classificação legal. Quando faltar confirmação, diga “receituário não confirmado”.
 
 Quando a rede parceira devolver quantidade por filial com data de observação, informe a loja, a quantidade e o horário do dado. Uma oferta de retirada vale para o número de caixas pedido. Na ausência de contagem, diga «o site oferece retirada de uma caixa nessa loja» quando essa oferta estiver confirmada.
