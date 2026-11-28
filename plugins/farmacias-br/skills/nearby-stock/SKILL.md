@@ -3,6 +3,8 @@ name: nearby-stock
 description: Handle Drogasil medication availability and shopping baskets. Ask about generics for named brands before any lookup, then plan all pickups together.
 ---
 
+Accept a supplied SKU silently. Never ask for, mention, or display a SKU, its value, or a barcode in any user-facing reply, including errors and follow-ups. Identify products by name and presentation. Offer numbered choices when clarification is needed.
+
 These instructions cover Drogasil. When the user names Pague Menos or Drogaria São Paulo, use the retailer workflows in redes-e-precos. Keep every SKU attached to its issuing retailer.
 
 For shopping by commercial name, including “Tem Frontal 2 mg?” and “Quais as opções de Frontal?”, make your first reply a question **before any Drogasil tool call**, including catalog search or SKU lookup: “Quer que eu veja também os genéricos na mesma apresentação? Eles podem custar menos.” For a mixed basket ask once, naming only the brands. “Frontal, Rivotril e loratadina” → “Quer incluir genéricos para Frontal e Rivotril?” “Só para o Rivotril” → Frontal `includeGenerics: false`, Rivotril `includeGenerics: true`, loratadina unchanged. An exact SKU or explicit “com genéricos”, “só a marca” or “só genéricos” settles the preference for that item only. A CEP, quantity or another line with a SKU leaves the named brands open. If location is missing ask for it in the same turn. Reuse the shared origin.
@@ -15,7 +17,7 @@ When `coverage.canExpand` is true, report `coverage.checkedStores` and the dista
 
 For a wider result, show the branches in `expandedSearch.stores` in their returned order, with distance, address and stock. Include the branch phone when supplied. Mark CEP distances as estimates. For a partial result, describe only confirmed availability. Recommend calling before travelling and stop at 25 km.
 
-For lines with choices, render one Markdown table per requested medication in the returned order. Use the returned option IDs and columns **# | Medicamento | Tipo | Farmácia | Distância | Preço de referência | Qtd. em estoque**. Include the returned `type` wherever product options appear. Put unavailable, unknown and failed variants in separate short notes. Explain missing comparison fields and ask for a SKU for ambiguous presentations or rows marked `needsSelection`. A lookup failure or unreadable quantity cannot establish zero stock.
+For lines with choices, render one Markdown table per requested medication in the returned order. Use the returned option IDs and columns **# | Medicamento | Tipo | Farmácia | Distância | Preço de referência | Qtd. em estoque**. Include the returned `type` wherever product options appear. Put unavailable, unknown and failed variants in separate short notes. For ambiguous presentations or rows marked `needsSelection`, describe the differences and let the person choose a numbered option. A lookup failure or unreadable quantity cannot establish zero stock.
 
 For two or more medications, show the returned plans immediately. Show the ordered stops, products and packs at each, estimated total and straight-line round-trip distance. Merge the two headings when `objective` is `both`. Use `tradeoff` for the savings and change in stops and distance. Report any unfilled lines explicitly. Prices are catalog estimates for the participating branches checked. If `searchComplete` is false, label the plans best found and explain the optimum could not be verified. Flag unknown prices, stock or route data when reported.
 
@@ -24,3 +26,5 @@ Finish a basket with one optional question, e.g. “Alguma preferência? Pode re
 For an explicit single-SKU request for multiple stockists (“quais lojas têm duas caixas desse SKU?”), use `find_nearby_stock` with the shared origin and minimumQuantity. If the user specifies one fixed nearest store, read nearestStore including zero or unknown. For stock questions about product options, use the numbered plan_purchase table.
 
 For medication facts alone, use only `get_medication_info` once with all names or exact SKUs. No CEP is needed.
+
+For “Tem paracetamol perto de mim?”, use the shared location. If the presentation changes the answer, ask one short question about it. Assume one pack when the person gives no quantity.
