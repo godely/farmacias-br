@@ -154,6 +154,24 @@ function itineraryText(result) {
   return text.join('\n');
 }
 
+function singlePickupReply(result) {
+  if (result.planningScope !== 'one_pack_alternatives' || result.products?.length !== 1 ||
+      result.purchase || result.fixedStore || result.quoteStatus === 'partial') return null;
+  const [product] = result.products;
+  const point = product.closestQuotedPickup;
+  if (product.localStatus !== 'available' || point?.channel !== 'pickup-in-point' || !point.pickupPointId ||
+      !Number.isFinite(point.distanceKm) || !Number.isSafeInteger(product.requestedQuantity) ||
+      product.requestedQuantity < 1 || product.branchQuantity != null) return null;
+  const address = describePickupStop({name:point.branch, address:point.address});
+  if (!address) return null;
+  const label = [product.name, product.manufacturer, product.type].filter(Boolean).join(' · ');
+  const quantity = product.requestedQuantity === 1 ? 'uma caixa' : product.requestedQuantity+' caixas';
+  const price = Number.isFinite(product.currentPrice) ? ', a '+currency.format(product.currentPrice)+' por caixa' : '';
+  const km = point.distanceKm.toLocaleString('pt-BR',{maximumFractionDigits:2});
+  return 'Segundo o site, dá para retirar '+quantity+' de '+label+price+', na '+address+
+    ' ('+km+' km em linha reta), a filial mais próxima entre as que ofereceram retirada.';
+}
+
 export function shoppingReply(response) {
   const data = response.structuredContent;
   if (!data) return response;
@@ -161,6 +179,14 @@ export function shoppingReply(response) {
   const wider = data.expandedSearch ?? data.purchase?.expandedSearch;
   if (wider) guidance.expandedGuidance = expandedGuidance(wider);
   const outcomes = data.results ?? [data];
+  if (!wider && data.storeScope !== 'fixed_branch' && outcomes.some(row => !row.fixedStore && row.planningScope === 'one_pack_alternatives')) {
+    guidance.pickupDisplayGuidance = 'Para uma pergunta comum de compra, mostre cada apresentação uma vez, somente na filial mais próxima com retirada oferecida para a quantidade pedida. Se a distância estiver incompleta, diga que a filial mais próxima ficou sem confirmação. Liste outras filiais ou entrega quando a pessoa pedir. Uma opção cabe em uma frase.';
+    const reply = singlePickupReply(data);
+    if (reply) guidance.suggestedPickupReply = reply;
+  }
+  if (outcomes.some(row => row.tables?.some(t => t.status === 'requested_brand_not_found'))) {
+    guidance.manufacturerGuidance = 'O fabricante escolhido não apareceu entre as opções verificadas dessa apresentação. Diga isso para a rede consultada, preserve a preferência e aguarde. Outra embalagem ou fabricante precisa de uma nova escolha.';
+  }
   if (outcomes.some(row => row.tables?.some(needsPresentationChoice))) guidance.presentationGuidance = presentationGuidance;
   if (data.storeScope !== 'fixed_branch' && outcomes.some(row => row.coverage || row.planningScope === 'one_pack_alternatives')) guidance.priceGuidance = priceGuidance;
   if (outcomes.some(row => row.fixedStore)) {
