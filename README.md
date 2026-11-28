@@ -103,3 +103,16 @@ farmacias read_snapshot "$RUN_ID" --limit 5
 O teste de aceitação chama o MCP por stdio contra os catálogos reais, exercita os dois CEPs informados no momento do teste e descarta seu banco temporário de snapshots. Ele valida separadamente o escopo do preço, a quantidade consultada, o vendedor e a opção de retirada comum. Execute `node scripts/check-retailer-workflows.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"` com dois CEPs de teste para as cotações. O número de lojas e os preços variam.
 
 Para verificar também os executáveis dos dois pacotes parceiros publicados no GitHub, execute `node scripts/check-sibling-clis.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"`. O teste cobre busca, sugestões, SKU, informações, código de barras, estoque.
+
+### Conversas de teste no Claude e no ChatGPT
+
+Comece cada teste com a fala da primeira coluna. Guarde o que deve ser conferido para depois da resposta. Antecipar essas verificações na pergunta impede avaliar se o assistente faz a coisa certa por conta própria.
+
+| O que a pessoa diz | O que conferir |
+|---|---|
+| “Tem paracetamol perto de mim?” | O assistente aproveita a localização já compartilhada. Se precisar esclarecer a apresentação, pergunta em poucas palavras, como “Em gotas ou comprimidos?”. |
+| “Tem dipirona em gotas na Pague Menos?” | A resposta trata da forma e da rede pedidas. Se só houver uma oferta de catálogo, o assistente deixa claro que ainda falta verificar a retirada. |
+| “Dá pra pegar uma caixa hoje?” | O assistente retoma o produto escolhido e consulta a retirada para uma caixa. Só informa quantas caixas restam se a filial fornecer esse número. |
+| “E na Drogaria São Paulo?” | O assistente conserva o remédio, a apresentação e a localização da conversa e verifica a outra rede. |
+
+Uma pessoa pode escolher pelo número da opção ou dizer “o de 750 mg”. Confira se a consulta seguinte usa a embalagem escolhida e se a resposta se refere a ela pelo nome.
