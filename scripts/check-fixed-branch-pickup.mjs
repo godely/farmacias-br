@@ -71,4 +71,26 @@ try {
       console.log(retailer,label,branch.storeName,rows.map(p=>p.pickupAtStore).join(', '));
     }
   }
+  // One shopper, one abbreviated manufacturer, two independent retailer records.
+  const retailers = ['drogasil','paguemenos'];
+  const origin = {zipcode:ceps[0]};
+  const items = [{query,brand:'Prati',includeGenerics:false}];
+  for (const [surface,lookup] of [
+    ['CLI',()=>cli(path('../bin/farmacias.js'),['plan',query,'--brand','A=Prati','--brand-only','A',
+      '--store','nearest','--retailers',retailers.join(','),'--cep',origin.zipcode])],
+    ['MCP',()=>tool('plan_purchase',{retailers,origin,store:'nearest',items})],
+  ]) {
+    const result = await lookup();
+    assert.deepEqual(result.checkedRetailers,retailers);
+    const [drug,partner] = result.results.map(r=>r.tables[0]);
+    assert.ok(drug.rows.length > 0 && partner.choices.length > 0);
+    for (const row of [...drug.rows,...partner.choices]) {
+      assert.match(row.name,/prati[ -]+donaduzzi/i);
+      assert.match(row.name,/750\s*mg/i);
+      assert.match(row.name,/20\s*comprimidos/i);
+    }
+    assert.ok(drug.rows.every(p=>Number.isSafeInteger(p.store?.quantity)));
+    assert.ok(partner.choices.every(p=>p.branchQuantity===null && ['offered','not_offered'].includes(p.pickupAtStore)));
+    console.log(surface,retailers.join('+'),'fabricante e quantidade verificados');
+  }
 } finally {await client.close();}

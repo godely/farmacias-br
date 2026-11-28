@@ -93,7 +93,8 @@ test('an unnamed chain searches all three; selecting or changing scope survives 
 test('partner checkout at the fixed directory branch survives MCP compaction and cannot substitute a farther store', async () => {
   const groups = [['paguemenos','paguemenos00001_abcd'],['drogariasaopaulo','drogariaspcentro_2']];
   const providers = Object.fromEntries(groups.map(([id,point])=>[id,{
-    product:async sku => [{sku,sellerId:'1',name:'Produto teste',currentPrice:6}],
+    search:async query => query === 'Meu produto' ? [{sku:id === 'paguemenos' ? '8' : '9'}] : [],
+    product:async sku => [{sku,sellerId:'1',name:'Meu produto',currentPrice:6}],
     stores:async () => [{id:'2',distanceKm:3},{id:'1',distanceKm:0.4,storeName:'Centro'}],
     local:async (row, place, quantity) => {
       assert.deepEqual(place,origin);
@@ -121,8 +122,10 @@ test('when a basket splits across chains, each pickup belongs to the nearest bra
       return {...offer,localStatus:'available',requestedQuantity:quantity,methods:[
         {channel:'pickup-in-point',pickupPointId:prefix(n),branch:'Filial '+n,distanceKm:n}]};
     }
+    const catalog = names.map((name,index)=>({sku:String(index+1),sellerId:'1',name,currentPrice:11+index}));
     return [id,{
-      product:async sku=>[{sku,sellerId:'1',name:names[Number(sku)-1],currentPrice:10+Number(sku)}],
+      search:async query=>catalog.filter(row=>row.name===query),
+      product:async sku=>catalog.filter(row=>row.sku===sku),
       local:async (row,place,q)=>quote(row,q),
       basket:async lines=>lines.map(({offer,quantity})=>quote(offer,quantity)),
       stores:async()=>[{id:'1',storeName:'Perto',distanceKm:1},{id:'2',storeName:'Longe',distanceKm:2}],
