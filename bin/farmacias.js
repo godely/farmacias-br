@@ -16,7 +16,7 @@ const usage = `Farmácias BR
   farmacias compare <nome ou SKU> --retailer ID [--generics] [--cep CEP | --lat LAT --lon LON] [--store nearest|ID | --expand]
   farmacias baskets GTIN[:quantidade]... --retailers ID,ID --cep CEP
   farmacias basket SKU[:quantidade[:vendedor]]... --retailer ID --cep CEP
-  farmacias info <nome ou SKU>... --retailer ID [--brazil]
+  farmacias info <nome>... (--retailer ID | --retailers ID,ID) [--brazil] [--page N --limit N]
   farmacias snapshot <consulta>... (--retailer ID | --retailers ID,ID) [--max-items N]
   farmacias read_snapshot <run-id> [--offset N --limit N]
   farmacias export_snapshot <run-id> [--format json|csv|xlsx]
@@ -65,7 +65,7 @@ async function runOther() {
     else if (operation === 'product' && terms.length>1) args.skus=terms;
     else if (terms.length) args[['stock','product'].includes(operation) ? 'sku' : 'query'] = terms.join(' ');
     if (values.retailer?.length===1) args.retailer=values.retailer[0];
-    else if (values.retailer?.length && operation==='search' && !values.retailers) args.retailers=values.retailer;
+    else if (values.retailer?.length && ['search','info'].includes(operation) && !values.retailers) args.retailers=values.retailer;
     else if(values.retailer?.length) throw Error('Use --retailers for multiple target chains');
     if (values.retailers!==undefined) args.retailers=values.retailers.split(',').map(s=>s.trim());
     if (values.brazil) args.scope='brazil';

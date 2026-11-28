@@ -6,7 +6,7 @@ import {planSelectedBaskets, purchaseSchema} from './named-baskets.js';
 import { compareBaskets } from './baskets.js';
 import { retailerBasket, retailerComparison, catalogInfo, catalogType, requestsDrops } from 'drogasil-cli/retailer-workflows';
 import { alternativeNames } from 'drogasil-cli/medication-catalog';
-import { compareRetailPrices, getMedicationInfo, readSnapshot } from 'drogasil-cli';
+import { compareRetailPrices, readSnapshot } from 'drogasil-cli';
 import { providers } from './providers.js';
 import { nameChoices, choiceFollowup, clarifyLookup } from './name-choices.js';
 import { startSnapshots } from './snapshot-scopes.js';
@@ -43,8 +43,9 @@ export const schemas = {
   basket: z.strictObject({retailer:partner, zipcode, items:z.array(z.strictObject({sku,
     sellerId:z.string().trim().min(1).max(100).optional(), quantity:z.number().int().min(1).max(1000).default(1)})).min(1).max(20)}),
   baskets: z.strictObject({retailers:selection,zipcode,items:z.array(z.strictObject({gtin:z.string().refine(validGtin),quantity:z.number().int().min(1).max(1000).default(1),sellers:z.partialRecord(retailer,z.string()).optional()})).min(1).max(20)}),
-  info: z.strictObject({retailer, scope:z.enum(['catalog','brazil']).default('catalog'), queries:z.array(query).min(1).max(10),
-    page:z.number().int().min(1).max(100).default(1), limit:z.number().int().min(1).max(50).default(20)}),
+  info: z.strictObject({retailer:retailer.optional(), retailers:selection.optional(), scope:z.enum(['catalog','brazil']).default('catalog'), queries:z.array(query).min(1).max(10),
+    page:z.number().int().min(1).max(100).default(1), limit:z.number().int().min(1).max(50).default(20)})
+    .refine(args => Boolean(args.retailer) !== Boolean(args.retailers), 'Selecione a rede ou as redes para a consulta'),
   snapshot: z.strictObject({retailer:retailer.optional(), retailers:z.array(retailer).min(1).max(3)
     .refine(ids => new Set(ids).size === ids.length, 'Rede repetida').optional(),
     queries:z.array(query).min(1).max(10), maxItems:z.number().int().min(1).max(1000).default(20)})
@@ -253,13 +254,46 @@ export async function comparePrices(args, { compare = compareRetailPrices, sourc
 
 export async function medicationInfo(args, sources = providers) {
   const input = schemas.info.parse(args);
-  if (input.retailer === 'drogasil') {
-    const data = await getMedicationInfo(input.queries,{scope:input.scope});
-    return {...data, retailerId:input.retailer, page:input.page, limitPerQuery:input.limit,
-      results:data.results.map(row => ({...row, products:/^\d+$/.test(row.query) ? row.products :
-        row.products.slice((input.page-1)*input.limit,input.page*input.limit)}))};
+  const national = new Map();
+  function nationalInfo([term], options) {
+    if (!national.has(term)) national.set(term, sources.drogasil.info([term], options));
+    return national.get(term);
   }
-  return catalogInfo(input,sources[input.retailer]);
+  if (!input.retailers) return retailerInfo(input, sources[input.retailer], nationalInfo);
+  if (input.retailers.length > 1 && input.queries.some(term => /^\d+$/.test(term))) {
+    return {status:'requires_retailer', retailers:input.retailers,
+      question:'De qual farmácia é o produto que você indicou pelo código? Também posso procurar pelo nome nas redes escolhidas.'};
+  }
+
+  const results = await Promise.all(input.retailers.map(async retailer => {
+    const group = await retailerInfo({...input, retailer}, sources[retailer], nationalInfo);
+    const failed = group.results.filter(row => row.status === 'source_failed').length;
+    const partial = group.results.some(row => row.status === 'partial' || row.nationalStatus === 'source_failed' || row.brazil?.lookupFailed);
+    const status = failed === group.results.length ? 'source_failed' : failed || partial ? 'partial' : 'checked';
+    return {...group, status};
+  }));
+  const failed = results.filter(group => group.status === 'source_failed').length;
+  const status = failed === results.length ? 'source_failed' :
+    results.some(group => group.status !== 'checked') ? 'partial' : 'checked';
+  return {retailers:input.retailers, status, results};
+}
+
+async function retailerInfo(input, source, nationalInfo) {
+  if (input.retailer !== 'drogasil') return catalogInfo(input, source, nationalInfo);
+  const results = [];
+  for (const query of input.queries) {
+    try {
+      const data = input.scope === 'brazil' ? await nationalInfo([query], {scope:input.scope}) :
+        await source.info([query], {scope:input.scope});
+      const row = data.results[0];
+      const products = /^\d+$/.test(query) ? row.products :
+        row.products.slice((input.page-1)*input.limit, input.page*input.limit);
+      results.push({...row, products});
+    } catch {
+      results.push({query, status:'source_failed', products:[]});
+    }
+  }
+  return {scope:input.scope, retailerId:input.retailer, page:input.page, limitPerQuery:input.limit, results};
 }
 export const operations = { plan: planSelectedBaskets, retailers: listRetailers, search: searchCatalog, suggest: suggestTerms, product: getProduct,
   stock: getStock, prices: comparePrices, info: medicationInfo,
@@ -278,7 +312,7 @@ export async function request(operation, input) {
   if (!Object.hasOwn(operations, operation)) throw new TypeError('Operação desconhecida');
   const args = schemas[operation].parse(input);
   if (['prices','compare','info'].includes(operation)) {
-    const scope = operation === 'prices' ? {retailers:args.retailers ?? retailerIds} : {retailer:args.retailer};
+    const scope = operation === 'prices' || args.retailers ? {retailers:args.retailers ?? retailerIds} : {retailer:args.retailer};
     const pending = await clarifyLookup('pharmacy_' + operation, args, scope);
     if (pending) return pending;
   }
