@@ -23,7 +23,7 @@ test('records the failed basket line, ordinary zero stock, and the successful de
     envelopes.push(init.body); return new Response('{}');
   } });
   const query = 'Segredo 2 mg 30 comprimidos de liberação imediata';
-  const args = { items: [{query}, {query:'123456789'}], origin: {zipcode:'11111-111'} };
+  const args = { retailer:'drogasil', items: [{query}, {query:'123456789'}], origin: {zipcode:'11111-111'} };
   const result = {tables:[{status:'no_reference'}, {status:'no_stock', coverage:{allZero:true}, unavailable:[{name:'Segredo'}],rows:[]}]};
   assert.equal(await monitor.run('plan_purchase', args, async () => result), result);
   await monitor.run('plan_purchase', args, async () => ({status:'needs_generic_preference'}));
@@ -98,4 +98,47 @@ test('a basket with delivery and unverified pickup reports the directory issue w
     assert.equal(event.outcome,expected);
     assert.doesNotMatch(JSON.stringify(event),/private/);
   }
+});
+
+test('completed basket reports partner subquery incidents once in REST and MCP without disclosing the basket', async () => {
+  const {planSelectedBaskets} = await import('../src/named-baskets.js');
+  const args = {retailers:['drogasil','paguemenos'], items:['Segredo A','Segredo B'].map(query=>({query,includeGenerics:false})),
+    origin:{zipcode:'11111-111'}};
+  const plan = async (id, lines) => {
+    if (id==='drogasil') return {tables:lines.map(({query})=>({rows:[{sku:query,name:query,referencePriceBRL:3,
+      store:{id:'private-branch',name:'Private store',quantity:2,distanceKm:1}}]}))};
+    if (lines.length > 1) return {status:'choose_products',tables:lines.map(()=>({status:'matches',choices:[{}]}))};
+    if (lines[0].query === 'Segredo A') throw Error('private network details');
+    return {status:'unverified'};
+  };
+  const result=await planSelectedBaskets(args,{plan,clarify:async()=>[]});
+  assert.equal(result.crossRetailerPlans.status,'complete');
+  const expected=['upstream_failure','pickup_unconfirmed'];
+  for (const operation of ['plan','plan_purchase']) {
+    const rows=observations(operation,args,result);
+    const diagnostics=rows.filter(row=>row.operation==='pickup_quote');
+    assert.deepEqual(diagnostics.map(r=>r.outcome),expected);
+    assert.ok(diagnostics.every(r=>r.retailer==='paguemenos' && r.shape==='name'));
+    assert.equal(rows.filter(row=>row.operation==='plan_purchase').length,4);
+    assert.doesNotMatch(JSON.stringify(rows),/Segredo|11111|private/i);
+  }
+  const envelopes=[],journal=[];
+  const monitor=createMonitoring(dsn,{journal:v=>journal.push(v),send:async (_,init)=>{
+    envelopes.push(init.body); return new Response('{}');
+  }});
+  await monitor.run('plan_purchase',args,async()=>({structuredContent:result}));
+  await monitor.close();
+  assert.deepEqual(journal.map(line=>JSON.parse(line).outcome),expected);
+  for (const envelope of envelopes) assert.doesNotMatch(envelope,/Segredo|11111|private/i);
+});
+
+test('retries and orders of a joint quote share an incident and a healthy retailer stays outside its group', () => {
+  const f=(itemIndices,reason)=>({retailerId:'paguemenos',itemIndices,reason});
+  const pickupPlans={lookupFailures:[f([0,1],'pickup_unknown'),f([1,0],'lookup_failed'),f([0,1],'pickup_unknown')]};
+  const args={retailer:'paguemenos',items:[{query:'a'},{query:'b'}]};
+  const rows=observations('plan',args,{tables:[{status:'matches'},{status:'matches'}],pickupPlans});
+  assert.deepEqual(rows.filter(r=>r.operation==='pickup_quote'),[
+    {operation:'pickup_quote',retailer:'paguemenos',shape:'joint',outcome:'upstream_failure'}]);
+  assert.equal(observations('plan_purchase',{items:args.items},{status:'needs_generic_preference'})[0].retailer,'all');
+  assert.equal(observations('plan',args,{tables:[{status:'unavailable'}],pickupPlans:{lookupFailures:[]}}).length,1);
 });
