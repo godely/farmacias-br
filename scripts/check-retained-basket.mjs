@@ -7,12 +7,16 @@ import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
 import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
-const [zipcode] = process.argv.slice(2);
+const [zipcode, scenario='ever-care'] = process.argv.slice(2);
+assert.ok(['ever-care','split-pickup'].includes(scenario), 'Use ever-care ou split-pickup');
+const splitPickup = scenario === 'split-pickup';
 assert.match(zipcode ?? '', /^\d{5}-?\d{3}$/, 'Informe um CEP de teste');
-const retailers = ['paguemenos','drogariasaopaulo'];
+const retailers = splitPickup ? ['drogasil','paguemenos'] : ['paguemenos','drogariasaopaulo'];
 const items = [
   {query:'Dimorf em gotas', brand:'Dimorf', includeGenerics:false},
-  {query:'Descongestionante nasal spray Ever Care', brand:'Ever Care', includeGenerics:false},
+  splitPickup
+    ? {query:'Solução fisiológica Dauf Pro Soro 0,9% 500 mL', brand:'Dauf', includeGenerics:false}
+    : {query:'Descongestionante nasal spray Ever Care', brand:'Ever Care', includeGenerics:false},
 ];
 const bin = file => fileURLToPath(new URL('../bin/'+file+'.js',import.meta.url));
 const exec = promisify(execFile);
@@ -37,17 +41,50 @@ async function mcp(lines) {
   return response.structuredContent;
 }
 
+function verifySplit(result) {
+  // A catalog miss explains this observation only for the selected retailer and request.
+  assert.deepEqual(result.completeRetailers, [], 'Uma só rede passou a atender a cesta');
+  const missed = [result.results[0].tables[1], result.results[1].tables[0]];
+  for (const table of missed) {
+    assert.ok(['no_match','no_reference','no_stock'].includes(table.status),
+      'Ausência da opção não verificada: ' + table.status);
+  }
+  for (const plan of result.crossRetailerPlans.plans) {
+    assert.equal(plan.stopCount, 2);
+    let cents = 0;
+    for (const stop of plan.stops) {
+      assert.equal(stop.pickups.length, 1);
+      const [line] = stop.pickups;
+      assert.equal(stop.retailerId, retailers[line.item]);
+      if (line.evidence === 'reported_branch_stock') {
+        assert.ok(Number.isInteger(line.reportedStock) && line.reportedStock >= line.packs);
+      } else {
+        assert.equal(stop.retailerId, 'paguemenos');
+        assert.equal(line.evidence, 'quoted_pickup');
+        assert.equal(line.reportedStock, null);
+      }
+      assert.ok(Number.isFinite(line.unitPriceBRL));
+      cents += line.packs * Math.round(line.unitPriceBRL * 100);
+    }
+    assert.equal(Math.round(plan.totalBRL * 100), cents);
+    assert.ok(Number.isFinite(plan.roundTripKm) && plan.roundTripKm >= 0);
+  }
+}
+
 function chosenProducts(result) {
   assert.deepEqual(result.checkedRetailers,retailers);
   const plan = result.crossRetailerPlans?.plans?.[0];
   assert.ok(plan, 'A consulta atual precisa oferecer retirada para ambas as apresentações');
+  if (splitPickup) verifySplit(result);
+  const secondProduct = splitPickup ? /dauf.*pro soro.*500\s*ml/i : /ever\s*care/i;
   const choices = [];
   for (const stop of plan.stops) {
     assert.ok(stop.id);
     for (const line of stop.pickups) {
-      assert.equal(line.evidence,'quoted_pickup');
+      if (!splitPickup) assert.equal(line.evidence,'quoted_pickup');
       assert.equal(line.packs,1);
-      assert.match(line.name,line.item===0 ? /dimorf/i : /ever\s*care/i);
+      assert.match(line.name, line.item === 0 ? /dimorf/i : secondProduct);
+      if (line.item === 0) assert.match(line.name, /solu[çc][ãa]o|gotas/i);
       assert.ok(!choices[line.item]);
       choices[line.item] = {retailer:stop.retailerId,sku:line.sku,name:line.name};
     }
@@ -68,7 +105,8 @@ try {
     assert.deepEqual(chosenProducts(refreshed),chosen);
     for (const [i,choice] of chosen.entries()) {
       const table = refreshed.results.find(r=>r.retailerId===choice.retailer).tables[i];
-      assert.ok(table.choices.length && table.choices.every(p=>p.sku===choice.sku));
+      const options = table.choices ?? table.rows;
+      assert.ok(options?.length && options.every(p=>String(p.sku)===String(choice.sku)));
     }
     const plan = refreshed.crossRetailerPlans.plans[0];
     console.log(surface,chosen.map(p=>p.name).join(' + '),plan.stopCount+' parada(s)',plan.totalBRL+' BRL');
