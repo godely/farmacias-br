@@ -17,7 +17,7 @@ const usage = `Farmácias BR
   farmacias baskets GTIN[:quantidade]... --retailers ID,ID (--cep CEP | --lat LAT --lon LON)
   farmacias basket SKU[:quantidade[:vendedor]]... --retailer ID (--cep CEP | --lat LAT --lon LON)
   farmacias info <nome>... (--retailer ID | --retailers ID,ID) [--brazil] [--page N --limit N]
-  farmacias snapshot <consulta>... (--retailer ID | --retailers ID,ID) [--max-items N]
+  farmacias snapshot [consulta...] (--retailer ID | --retailers ID,ID) [--max-items N]
   farmacias read_snapshot <run-id> [--offset N --limit N]
   farmacias export_snapshot <run-id> [--format json|csv|xlsx]
   farmacias stock <SKU> --retailer ID (--cep CEP | --lat LAT --lon LON) [--quantity N | --all] [--max-branches N] [--expand]
@@ -61,7 +61,7 @@ async function runOther() {
       return {sku,quantity:Number(quantity??1),sellerId};
     });
     else if (operation === 'read_snapshot') args.runId=terms.join(' ');
-    else if (['info','snapshot'].includes(operation)) args.queries=terms;
+    else if (operation === 'info' || (operation === 'snapshot' && terms.length)) args.queries=terms;
     else if (operation === 'product' && terms.length>1) args.skus=terms;
     else if (terms.length) args[['stock','product'].includes(operation) ? 'sku' : 'query'] = terms.join(' ');
     if (values.retailer?.length===1) args.retailer=values.retailer[0];

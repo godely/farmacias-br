@@ -149,6 +149,14 @@ test('CLI, HTTP, HTTP MCP and stdio MCP expose the same registry', async t => {
         assert.ok(!inputSchema.required?.includes('zipcode'), name);
       }
       assert.equal(tools.find(t=>t.name==='pharmacy_snapshot').annotations.readOnlyHint,false);
+      for (const name of ['pharmacy_snapshot','collect_catalog_snapshot']) {
+        const {inputSchema} = tools.find(tool => tool.name === name);
+        assert.deepEqual(inputSchema.properties.queries.default, ['paracetamol']);
+        assert.equal(inputSchema.required?.includes('queries') ?? false, false);
+        const invalid = await client.callTool({name, arguments:name === 'pharmacy_snapshot' ?
+          {retailer:'drogasil',queries:[]} : {queries:[]}});
+        assert.ok(invalid.isError);
+      }
       assert.equal(tools.find(t=>t.name==='pharmacy_basket').annotations.readOnlyHint,true);
       assert.deepEqual((await client.callTool({name:'pharmacy_retailers',arguments:{}})).structuredContent.retailers,listRetailers());
       assert.ok(tools.find(t=>t.name==='plan_purchase').inputSchema.properties.retailer);

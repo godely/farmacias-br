@@ -7,6 +7,7 @@ import { compareBaskets } from './baskets.js';
 import { retailerBasket, retailerComparison, catalogInfo, catalogType, requestsDrops } from 'drogasil-cli/retailer-workflows';
 import { alternativeNames } from 'drogasil-cli/medication-catalog';
 import { compareRetailPrices, readSnapshot } from 'drogasil-cli';
+import { snapshotQueriesSchema } from 'drogasil-cli/mcp-tools';
 import { providers } from './providers.js';
 import { nameChoices, choiceFollowup, clarifyLookup } from './name-choices.js';
 import { startSnapshots } from './snapshot-scopes.js';
@@ -53,7 +54,7 @@ export const schemas = {
     .refine(args => Boolean(args.retailer) !== Boolean(args.retailers), 'Selecione a rede ou as redes para a consulta'),
   snapshot: z.strictObject({retailer:retailer.optional(), retailers:z.array(retailer).min(1).max(3)
     .refine(ids => new Set(ids).size === ids.length, 'Rede repetida').optional(),
-    queries:z.array(query).min(1).max(10), maxItems:z.number().int().min(1).max(1000).default(20)})
+    queries:snapshotQueriesSchema(z), maxItems:z.number().int().min(1).max(1000).default(20)})
     .refine(args => Boolean(args.retailer) !== Boolean(args.retailers), 'Selecione as redes para a coleta'),
   read_snapshot: z.strictObject({runId:z.string().uuid(), offset:z.number().int().min(0).default(0), limit:z.number().int().min(1).max(1000).default(20)}),
   stock: withLocation({ retailer, sku, quantity: z.number().int().min(1).max(1000).optional(),

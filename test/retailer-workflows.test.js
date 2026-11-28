@@ -114,3 +114,26 @@ test('snapshot starts only the selected chains and keeps successful run identifi
   }
   assert.deepEqual(await startSnapshots({retailer:ids[0],queries:['shampoo']},sources,async()=>({runId:'one'})),{runId:'one'});
 });
+
+test('an explicit collection defaults to paracetamol for each selected retailer', async () => {
+  const {startSnapshots} = await import('../src/snapshot-scopes.js');
+  const retailers = ['drogasil', 'paguemenos', 'drogariasaopaulo'];
+  const sources = Object.fromEntries(retailers.map(id => [id, {id}]));
+  for (let mask = 1; mask < 8; mask++) {
+    const selected = retailers.filter((_, i) => mask & (1 << i));
+    const scope = selected.length === 1 ? {retailer:selected[0]} : {retailers:selected};
+    const args = schemas.snapshot.parse(scope);
+    const calls = [];
+    await startSnapshots(args, sources, async (input, source) => {
+      calls.push(source.id);
+      assert.deepEqual(input, {retailer:source.id, queries:['paracetamol'], maxItems:20});
+      return {runId:source.id};
+    });
+    assert.deepEqual(calls, selected);
+  }
+  for (const queries of [[], [''], [' '], null]) {
+    assert.equal(schemas.snapshot.safeParse({retailer:'drogasil', queries}).success, false);
+  }
+  assert.equal(schemas.snapshot.safeParse({}).success, false);
+  assert.equal(schemas.info.safeParse({retailer:'drogasil'}).success, false);
+});

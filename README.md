@@ -102,8 +102,13 @@ farmacias basket 3179:1 1633706:2 --retailer paguemenos --cep "$CEP"
 farmacias stores --retailer drogasil --limit 5
 farmacias stores --retailers paguemenos,drogariasaopaulo --cep "$CEP" --limit 3
 farmacias snapshot loratadina paracetamol --retailer drogariasaopaulo --max-items 10
+farmacias snapshot --retailers drogasil,paguemenos --max-items 1
 farmacias read_snapshot "$RUN_ID" --limit 5
 ```
+
+Quando a coleta omite os termos, ela pesquisa paracetamol nas redes escolhidas. O limite padrão é de 20 produtos por rede.
+
+Para conferir a coleta padrão nas sete combinações pelo CLI e pelo MCP, execute `node scripts/check-snapshot-scopes.mjs`. O teste ao vivo limita cada coleta a um produto por rede e confere a exportação. Para testar um termo explícito, passe-o como argumento.
 
 O teste de aceitação chama o MCP por stdio contra os catálogos reais, exercita os dois CEPs informados no momento do teste e descarta seu banco temporário de snapshots. Ele valida separadamente o escopo do preço, a quantidade consultada, o vendedor e a opção de retirada comum. Execute `node scripts/check-retailer-workflows.mjs "$CEP_TESTE_A" "$CEP_TESTE_B"` com dois CEPs de teste para as cotações. O número de lojas e os preços variam.
 
