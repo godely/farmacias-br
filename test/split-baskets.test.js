@@ -170,3 +170,46 @@ test('shopper-facing MCP compares route length and names the branch at its addre
   assert.match(reply.content[0].text, /4,00.*1 parada a mais.*500 m a mais.*linha reta/);
   assert.equal(reply.structuredContent.crossRetailerPlans.comparison,comparison);
 });
+
+test('MCP gives the verified part of a split basket and explains the missing line per chain',async()=>{
+  const {shoppingReply,toolReply}=await import('../src/server.js');
+  const r=await report(items,{
+    drogasil:lines=>drug({A:10},lines),
+    paguemenos:lines=>partner({B:[5,'Filial Central']},lines),
+    drogariasaopaulo:()=>{throw Error('offline');},
+  });
+  const reply=shoppingReply(toolReply('plan_purchase',{},r));
+  assert.equal(reply.structuredContent.nextAction,'answer_with_partial_basket');
+  const {partialBasket,plans}=reply.structuredContent.crossRetailerPlans;
+  assert.deepEqual(plans,[]);
+  assert.deepEqual(r.completeRetailers,[]);
+  assert.deepEqual(partialBasket.plans[0].stops.flatMap(s=>s.pickups.map(p=>p.item)).sort(),[0,1]);
+  assert.equal(partialBasket.plans[0].totalBRL,15);
+  const text=reply.content[0].text;
+  assert.match(text,/2 de 3/);
+  assert.match(text,/Pague Menos — Filial Central/);
+  assert.match(text,/Pendente: C.*Pague Menos \(apresentação não encontrada.*Drogaria São Paulo \(falha na consulta/);
+  assert.doesNotMatch(text,/Cesta completa|Economia de/);
+});
+
+test('each of the seven retailer selections retains just the verified items from its own sources',async()=>{
+  const {shoppingReply,toolReply}=await import('../src/server.js');
+  const lines=[...items,{query:'Quarto produto',includeGenerics:false}];
+  for (let mask=1;mask<8;mask++) {
+    const selection=ids.filter((_,i)=>mask & 1<<i);
+    const calls=new Set();
+    const r=await report(lines,Object.fromEntries(ids.map((id,i)=>[id,subset=>{
+      calls.add(id);
+      if(i===0) return {...drug({A:7},subset),status:'partial'};
+      return partner(i===1?{B:[5,'Centro']}:{C:[4,'Estação']},subset);
+    }])),selection);
+    assert.deepEqual([...calls].sort(),[...selection].sort());
+    const basket=(r.crossRetailerPlans ?? r.results[0].pickupPlans).partialBasket;
+    assert.deepEqual([basket.filledCount,basket.requestedCount],[selection.length,4]);
+    for (const p of basket.plans) {
+      assert.deepEqual(p.stops.map(s=>s.retailerId).sort(),[...selection].sort());
+      for (const pending of p.unfilled) assert.deepEqual(pending.outcomes.map(o=>o.retailerId),selection);
+    }
+    assert.match(shoppingReply(toolReply('plan_purchase',{},r)).content[0].text,/Cesta parcial/);
+  }
+});

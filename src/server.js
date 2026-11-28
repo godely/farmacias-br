@@ -1,4 +1,4 @@
-import {describePickupStop, describePlanDifference} from 'paguemenos-cli/pickup-plans';
+import {describeUnfilled, describePickupStop, describePlanDifference} from 'paguemenos-cli/pickup-plans';
 import {publishedAddress} from './stock-coverage.js';
 import {clarifyLookup} from './name-choices.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -127,9 +127,12 @@ function expandedGuidance(wider) {
 }
 
 function itineraryText(result) {
-  if (!result?.plans?.length) return null;
-  const text = ['Cesta completa. Cada filial visitada conta como uma parada. Use a ordem abaixo.'];
-  for (const p of result.plans) {
+  const partial = result?.partialBasket;
+  const itinerary = partial ?? result;
+  if (!partial && !itinerary?.plans?.length) return null;
+  const text = [partial ? 'Cesta parcial. Itens confirmados: '+partial.filledCount+' de '+partial.requestedCount+'.' :
+    'Cesta completa. Cada filial visitada conta como uma parada. Use a ordem abaixo.'];
+  for (const p of itinerary.plans) {
     const cost = Number.isFinite(p.totalBRL) ? 'subtotal estimado de ' + currency.format(p.totalBRL) : 'subtotal a confirmar';
     const km = Number.isFinite(p.roundTripKm) ? p.roundTripKm.toLocaleString('pt-BR',{maximumFractionDigits:2}) +
       ' km de ida e volta em linha reta' : 'distância total a confirmar';
@@ -148,8 +151,10 @@ function itineraryText(result) {
         text.push('   ' + pick.packs + ' × ' + pick.name + ' · ' + price + ' · ' + evidence + '.');
       }
     }
+    for (const line of p.unfilled ?? []) text.push('Pendente: '+describeUnfilled(line));
   }
-  if (result.comparison) text.push(describePlanDifference(result.comparison));
+  for (const line of partial?.unfilled ?? []) text.push('Pendente: '+describeUnfilled(line));
+  if (itinerary.comparison) text.push(describePlanDifference(itinerary.comparison));
   if (result.searchLimited || result.lookupFailures?.length) text.push('Comparação parcial entre as opções verificadas.');
   return text.join('\n');
 }
@@ -199,10 +204,11 @@ export function shoppingReply(response) {
       ? 'A consulta local confirmou zero em todas as redes selecionadas. Informe a cobertura e pergunte se a pessoa quer ampliar para 25 km. Aguarde a resposta.'
       : 'Responda com os resultados locais das redes selecionadas e encerre a busca. Informe a disponibilidade confirmada e qualquer informação pendente.';
   }
-  const itinerary = itineraryText(data.crossRetailerPlans ?? data.pickupPlans ?? (outcomes.length === 1 ? outcomes[0].pickupPlans : undefined));
+  const basket = data.crossRetailerPlans ?? data.pickupPlans ?? (outcomes.length === 1 ? outcomes[0].pickupPlans : undefined);
+  const itinerary = itineraryText(basket);
   if (itinerary && !data.nextAction) {
-    guidance.nextAction = 'answer_with_plan';
-    guidance.itineraryGuidance = 'Informe a filial e o endereço por item e o subtotal estimado. Quando os planos diferirem, explique a economia, a mudança de paradas e a diferença de percurso em linha reta. A consulta está concluída. Preserve os avisos de cobertura parcial.';
+    guidance.nextAction = basket.partialBasket ? 'answer_with_partial_basket' : 'answer_with_plan';
+    guidance.itineraryGuidance = 'Informe a filial e o endereço por item e o subtotal estimado. Quando houver uma comparação calculada, explique a economia, a mudança de paradas e a diferença de percurso em linha reta. Em uma cesta parcial, indique o que ficou pendente por rede. A consulta está concluída. Preserve os avisos de cobertura parcial.';
   }
   const notes = [itinerary,...Object.entries(guidance).filter(([key]) => key !== 'nextAction').map(([,text]) => text)].filter(Boolean);
   if (!notes.length) return response;
