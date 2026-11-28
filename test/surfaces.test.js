@@ -289,6 +289,19 @@ test('reference-only choices survive a fixed-store lookup and a partial cross-ch
   }
 });
 
+test('a missing equivalent after the shopper chooses a pack explains why stock is unknown', () => {
+  const table = {query:'Exemplo 2 mg 30 comprimidos',status:'no_match',requestedBrand:{name:'Exemplo',status:'no_exact_catalog_match'},choices:[]};
+  const plan = {retailerId:'paguemenos',tables:[table]};
+  for (const outcome of [plan,{retailerId:'paguemenos',...table}]) {
+    const reply = shoppingReply(toolReply('compare',{},outcome));
+    assert.match(reply.structuredContent.equivalenceGuidance,/Pague Menos.*Exemplo.*genérico com a mesma apresentação/);
+    assert.match(reply.content[0].text,/estoque ficou sem confirmação/);
+    assert.equal(reply.structuredContent.nextAction,undefined);
+  }
+  const failed = shoppingReply(toolReply('plan_purchase',{}, {...plan,tables:[{...table,status:'partial'}]}));
+  assert.equal(failed.structuredContent.equivalenceGuidance,undefined);
+});
+
 test('a broad counter question asks for one missing detail while preserving all catalog choices', () => {
   const names = ['Exemplo 750 mg 10 comprimidos', 'Exemplo 750 mg 20 comprimidos'];
   for (const table of [

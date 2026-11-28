@@ -30,6 +30,11 @@ function referenceChoiceTables(result) {
     table.referenceCatalog === 'drogasil' && table.presentationChoices?.length);
 }
 
+function unverifiedEquivalents(result) {
+  return (result.tables ?? [result]).filter(table => table.status === 'no_match' &&
+    table.requestedBrand?.status === 'no_exact_catalog_match');
+}
+
 const descriptions = {
   retailers: 'List supported Brazilian retailers and the stock and price evidence each can provide.',
   search: 'Search exactly the selected catalogs without a CEP. For nameChoice ask its question, wait for the selected name and pass that option’s onSelect. For a medication name confirmation, ask only confirmation.question verbatim. Stop for the reply. Sim accepts that single term: call pharmacy_search with onYes. Não: call pharmacy_suggest with onNo and show the remaining terms. Use activeIngredients and ingredientEvidence for ingredient questions. Return products only for the requested retailer.',
@@ -223,6 +228,10 @@ export function shoppingReply(response) {
     referenceChoices.join('. ') + '. Nesta etapa, a disponibilidade dessas apresentações na rede indicada está em aberto. ' +
     (completePlan ? 'Mostre primeiro o plano completo confirmado. Ofereça esclarecer a apresentação na outra rede se a pessoa quiser compará-la.' :
       'Após a escolha, consulte o nome com a apresentação escolhida na mesma rede, preservando os demais itens, preferências, quantidades, filial e origem.');
+  const unverified = outcomes.flatMap(row => unverifiedEquivalents(row).map(table =>
+    [retailerNames[row.retailerId], table.query ?? table.requestedBrand.name].filter(Boolean).join(' · ')));
+  if (unverified.length) guidance.equivalenceGuidance = unverified.join('. ') +
+    ' — a busca não encontrou a caixa da marca nessa rede nem confirmou um genérico com a mesma apresentação. O estoque ficou sem confirmação.';
   if (data.storeScope !== 'fixed_branch' && outcomes.some(row =>
     row.lowestPricedPickup || row.tables?.some(table => table.lowestPricedStockedOption) ||
     row.purchase?.tables?.some(table => table.lowestPricedStockedOption))) guidance.priceGuidance = priceGuidance;
@@ -303,8 +312,9 @@ export function createServer(monitor = null) {
       annotations: { readOnlyHint: name !== 'snapshot', destructiveHint: false, openWorldHint: !['retailers','read_snapshot'].includes(name) } }, async args => {
       const value = await request(name, args);
       const response = toolReply(name,args,value);
-      const referenceChoice = name === 'compare' && (value.results ?? [value]).some(row => referenceChoiceTables(row).length);
-      return referenceChoice || value.expandedSearch || value.purchase?.expandedSearch ? shoppingReply(response) : response;
+      const referenceEvidence = name === 'compare' && (value.results ?? [value]).some(row =>
+        referenceChoiceTables(row).length || unverifiedEquivalents(row).length);
+      return referenceEvidence || value.expandedSearch || value.purchase?.expandedSearch ? shoppingReply(response) : response;
     });
   }
   return server;
