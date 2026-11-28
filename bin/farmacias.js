@@ -14,14 +14,14 @@ const usage = `Farmácias BR
   farmacias product <SKU> <SKU> --retailer ID
   farmacias stores (--retailer ID | --retailers ID,ID) [--cep CEP | --lat LAT --lon LON] [--page N --limit N]
   farmacias compare <nome ou SKU> --retailer ID [--generics] [--cep CEP | --lat LAT --lon LON] [--store nearest|ID | --expand]
-  farmacias baskets GTIN[:quantidade]... --retailers ID,ID --cep CEP
-  farmacias basket SKU[:quantidade[:vendedor]]... --retailer ID --cep CEP
+  farmacias baskets GTIN[:quantidade]... --retailers ID,ID (--cep CEP | --lat LAT --lon LON)
+  farmacias basket SKU[:quantidade[:vendedor]]... --retailer ID (--cep CEP | --lat LAT --lon LON)
   farmacias info <nome>... (--retailer ID | --retailers ID,ID) [--brazil] [--page N --limit N]
   farmacias snapshot <consulta>... (--retailer ID | --retailers ID,ID) [--max-items N]
   farmacias read_snapshot <run-id> [--offset N --limit N]
   farmacias export_snapshot <run-id> [--format json|csv|xlsx]
   farmacias stock <SKU> --retailer ID (--cep CEP | --lat LAT --lon LON) [--quantity N | --all] [--max-branches N] [--expand]
-  farmacias prices <nome, SKU ou GTIN> --cep CEP [--retailer ID_DO_SKU] [--retailers ID,ID] [--generics]
+  farmacias prices <nome, SKU ou GTIN> (--cep CEP | --lat LAT --lon LON) [--retailer ID_DO_SKU] [--retailers ID,ID] [--generics]
   Resultados em JSON. Os identificadores de loja estão em farmacias retailers.`;
 try {
   if (process.argv[2] === 'plan') {

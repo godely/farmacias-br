@@ -1,9 +1,11 @@
 import { planPurchase, samePack } from 'drogasil-cli';
 import { retailerBasket } from 'drogasil-cli/retailer-workflows';
 
-export async function compareBaskets({items,retailers,zipcode}, sources, plan = planPurchase) {
+export async function compareBaskets({items,retailers,zipcode,coordinates}, sources, plan = planPurchase) {
   // The first selected retailer with a verified presentation supplies the identity
   // for each barcode. Each subsequent offer still has to match that physical pack.
+  const origin = coordinates ?? { zipcode };
+  const localPriceScope = coordinates ? 'verified_for_coordinates' : 'verified_for_cep';
   const anchors=new Map(), catalogs=new Map();
   const codes=[...new Set(items.map(item=>item.gtin))];
   for(const id of retailers) {
@@ -33,15 +35,16 @@ export async function compareBaskets({items,retailers,zipcode}, sources, plan = 
       if(retailer==='drogasil') {
         // The barcode already fixes the SKU. A brand-only filter would discard
         // an exact generic pack before its branch inventory was checked.
-        const data=await plan(lines.map(({sku,quantity})=>({query:sku,selectedSku:sku,quantity})),{origin:{zipcode}});
+        const data=await plan(lines.map(({sku,quantity})=>({query:sku,selectedSku:sku,quantity})),{origin});
         results.push({retailerId:retailer,status:data.status,priceScope:'catalog_reference',plan:data});
       } else {
-        const data=await retailerBasket({retailer,items:lines,zipcode},sources[retailer]);
-        results.push({...data,priceScope:data.status==='fulfillable'?'verified_for_cep':'unconfirmed'});
+        const data=await retailerBasket({retailer,items:lines,zipcode,coordinates},sources[retailer]);
+        const verified = data.status === 'fulfillable' && data.items.every(item => item.priceScope === localPriceScope);
+        results.push({...data, priceScope: verified ? localPriceScope : 'unconfirmed'});
       }
     } catch { results.push({retailerId:retailer,status:'source_failed'}); }
   }
-  const ranked=results.filter(r=>r.status==='fulfillable' && Number.isFinite(r.estimatedProductTotalBRL))
+  const ranked=results.filter(r=>r.priceScope === localPriceScope && Number.isFinite(r.estimatedProductTotalBRL))
     .sort((a,b)=>a.estimatedProductTotalBRL-b.estimatedProductTotalBRL);
   return {results,rankedProductSubtotals:ranked.map(({retailerId,estimatedProductTotalBRL})=>({retailerId,estimatedProductTotalBRL})),feesIncluded:false};
 }

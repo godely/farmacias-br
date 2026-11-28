@@ -143,6 +143,11 @@ test('CLI, HTTP, HTTP MCP and stdio MCP expose the same registry', async t => {
       for (const name of ['plan_purchase','find_nearby_stock','get_medication_info','compare_products','collect_catalog_snapshot','pharmacy_retailers','pharmacy_prices','pharmacy_search','pharmacy_suggest','pharmacy_stock','pharmacy_product','pharmacy_basket','pharmacy_compare','pharmacy_info','pharmacy_stores','pharmacy_snapshot','pharmacy_read_snapshot']) {
         assert.ok(tools.some(tool=>tool.name===name),name);
       }
+      for (const name of ['pharmacy_prices','compare_pharmacy_prices','pharmacy_basket','pharmacy_baskets']) {
+        const {inputSchema} = tools.find(tool => tool.name === name);
+        assert.ok(inputSchema.properties.coordinates && inputSchema.properties.zipcode, name);
+        assert.ok(!inputSchema.required?.includes('zipcode'), name);
+      }
       assert.equal(tools.find(t=>t.name==='pharmacy_snapshot').annotations.readOnlyHint,false);
       assert.equal(tools.find(t=>t.name==='pharmacy_basket').annotations.readOnlyHint,true);
       assert.deepEqual((await client.callTool({name:'pharmacy_retailers',arguments:{}})).structuredContent.retailers,listRetailers());
@@ -166,7 +171,7 @@ test('a completed fixed-store checkout directs the client to answer without wide
   assert.equal(toolReply('plan_purchase',{},value).structuredContent.nextAction,undefined);
 });
 
-test('coordinate-only origins reach the point-capable retailer and request a CEP for delivery quotes', async () => {
+test('coordinate-only origins reach stock at every retailer', async () => {
   const coordinates={latitude:-23.5,longitude:-46.6};
   const row={sku:'42',name:'Example'};
   const sources={drogasil:{product:async()=>[row],local:async(arg,origin)=>{assert.deepEqual(origin,coordinates);return arg}}};
@@ -174,7 +179,7 @@ test('coordinate-only origins reach the point-capable retailer and request a CEP
   for(const retailer of ['paguemenos','drogariasaopaulo']) {
     assert.equal((await getStock({retailer,sku:'42',coordinates},{[retailer]:sources.drogasil})).status,'checked');
   }
-  assert.equal((await request('prices',{query:'42',coordinates})).status,'requires_cep');
+
 });
 
 test('an independent name search can resolve a missing primary reference without selecting a near match', async () => {
