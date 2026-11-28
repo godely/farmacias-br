@@ -10,6 +10,7 @@ const origins = process.argv.slice(2);
 if (origins.length !== 2 || origins.some(s => !/^\d{5}-?\d{3}$/.test(s))) throw Error('Supply two test CEPs.');
 const query = 'paracetamol 750 mg 20 comprimidos';
 const root = fileURLToPath(new URL('../', import.meta.url));
+const missingPack = 'Patz GTS em gotas, frasco de 30 mL';
 const client = new Client({name:'counter-prices-check',version:'1'});
 await client.connect(new StdioClientTransport({command:process.execPath,args:[root+'bin/server.js']}));
 
@@ -19,7 +20,9 @@ try {
     const {stdout} = await promisify(execFile)(root+'node_modules/.bin/'+retailer,['plan',query,'--cep',zipcode,'--json']);
     const response = await client.callTool({name:'plan_purchase', arguments:{retailer,items:[{query}],origin:{zipcode}}}, undefined, {timeout:120000});
     assert.ok(!response.isError);
-    assert.ok(response.structuredContent.priceGuidance);
+    const shop = response.structuredContent;
+    const pricedOption = shop.lowestPricedPickup || shop.tables.some(table => table.lowestPricedStockedOption);
+    assert.equal(Boolean(shop.priceGuidance),Boolean(pricedOption));
     for (const [surface,data] of [['cli',JSON.parse(stdout)],['mcp',response.structuredContent]]) {
       assert.equal(data.tables.length,1);
       const table=data.tables[0];
@@ -40,5 +43,22 @@ try {
       }
       console.log('PASS',surface,retailer);
     }
+    const flags = ['plan',missingPack,'--cep',zipcode,'--brand','A=Patz','--brand-only','A'];
+    for (const json of [false,true]) {
+      await assert.rejects(promisify(execFile)(root+'node_modules/.bin/'+retailer,[...flags,...(json?['--json']:[])]), error => {
+        assert.equal(error.code,3);
+        if (json) {
+          const [table] = JSON.parse(error.stdout).tables;
+          assert.equal(table.query,missingPack);
+          assert.ok(['no_reference','no_match'].includes(table.status));
+        } else {
+          assert.ok(error.stdout.includes(missingPack));
+          assert.match(error.stdout,/catálogo consultado[\s\S]*estoque.*sem confirmação/i);
+          assert.doesNotMatch(error.stdout,/choose_products|\(index\)|20\s*mL|R\$/i);
+        }
+        return true;
+      });
+    }
+    console.log('PASS requested pack, text and JSON',retailer);
   }
 } finally { await client.close(); }
