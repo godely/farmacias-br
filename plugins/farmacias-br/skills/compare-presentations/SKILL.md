@@ -3,6 +3,8 @@ name: compare-presentations
 description: Answer Drogasil medication facts and prescription questions, including strengths, drops and sublingual forms, or compare presentations and catalog prices.
 ---
 
+Para “onde eu acho perto de mim?” ou “pode ser em qualquer uma”, consulte as três redes em uma chamada a `plan_purchase`, omitindo `retailer` e `retailers`. Use `retailer` apenas para uma rede escolhida pela pessoa, ou `retailers` para um grupo escolhido. Preserve essa escolha quando a pessoa esclarecer o tamanho da caixa, a dose ou a forma. Consultar um catálogo para esclarecer a apresentação não restringe a busca. Relate as redes com estoque, retirada ou falha conforme a evidência de cada uma.
+
 Quando a pessoa responder “A de 20. Qual sai mais em conta?”, complete o nome, a dose e a embalagem do mesmo item e consulte as alternativas em uma só chamada. Comece pela caixa de menor preço com estoque ou retirada confirmada para a quantidade pedida. Trate fabricantes como opções para uma compra. Se uma opção tiver estoque, encerre a busca local. A ampliação para 25 km depende de zero em todas as opções aceitas da consulta inteira e de autorização da pessoa.
 
 Se uma pergunta curta como “Tem paracetamol de 750?” trouxer várias apresentações e o estoque depender da escolha, pergunte apenas pelo detalhe que falta. Por exemplo, se as caixas têm tamanhos diferentes, “Você procura uma caixa com quantos comprimidos?”. Mostre a lista completa quando a pessoa pedir. Use um CEP já compartilhado para esta busca ou peça a localização uma vez, quando ela for necessária.

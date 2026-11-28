@@ -72,6 +72,12 @@ export function observations(operation, args, result) {
     for (const run of result.runs) add(run, undefined, retailerId(run.retailerId));
   } else if (result.tables?.length) {
     result.tables.forEach((row, i) => add(row, args.items?.[i]?.query));
+  } else if (result.scope === 'whole_basket_per_retailer') {
+    for (const row of result.results) {
+      const id = retailerId(row.retailerId);
+      if (row.tables?.length) row.tables.forEach((table, i) => add(table, args.items?.[i]?.query, id));
+      else add(row, undefined, id);
+    }
   } else if (result.checkedRetailers?.length) {
     for (const row of result.checkedRetailers) {
       const issue = result.issues?.find(issue => issue.retailer === row.retailer && sourceProblems.has(issue.status));
